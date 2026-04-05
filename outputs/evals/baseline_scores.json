@@ -1,0 +1,71 @@
+{
+  "metadata": {
+    "model": "llama-3.3-70b-versatile",
+    "seed": 42,
+    "average_score": 0.4175
+  },
+  "results": [
+    {
+      "task_id": "task1",
+      "score": 0.4997,
+      "scientific_integrity": 0.5,
+      "total_reward": -0.8394,
+      "doses_delivered": 564,
+      "total_demand": 728,
+      "mean_thermal_debt": 0.0,
+      "budget_remaining": 498498.0,
+      "steps": 14,
+      "parse_errors": 0,
+      "breakdown": {
+        "service_ratio": 0.5,
+        "thermal_debt_factor": 1.0,
+        "budget_factor": 0.9994,
+        "stockout_events": 7.0
+      },
+      "model": "llama-3.3-70b-versatile",
+      "seed": 42
+    },
+    {
+      "task_id": "task2",
+      "score": 0.0867,
+      "scientific_integrity": 0.0,
+      "total_reward": -6.0589,
+      "doses_delivered": 965,
+      "total_demand": 1560,
+      "mean_thermal_debt": 0.1432,
+      "budget_remaining": 469240.0,
+      "steps": 30,
+      "parse_errors": 0,
+      "breakdown": {
+        "mitigation_speed_score": 0.9667,
+        "vials_saved_ratio": 0.0,
+        "alpha_thermal_factor": 0.0,
+        "alpha_compromised": 1.0,
+        "mitigation_day": 2.0
+      },
+      "model": "llama-3.3-70b-versatile",
+      "seed": 42
+    },
+    {
+      "task_id": "task3",
+      "score": 0.6662,
+      "scientific_integrity": 0.7862,
+      "total_reward": -7.1117,
+      "doses_delivered": 976,
+      "total_demand": 1560,
+      "mean_thermal_debt": 0.0089,
+      "budget_remaining": 436520.0,
+      "steps": 30,
+      "parse_errors": 0,
+      "breakdown": {
+        "scientific_integrity": 0.7862,
+        "phase3_continuity_penalty": 0.12,
+        "reroute_bonus": 0.0,
+        "phase3_stockout_days": 6.0,
+        "reroute_performed": 0.0
+      },
+      "model": "llama-3.3-70b-versatile",
+      "seed": 42
+    }
+  ]
+}

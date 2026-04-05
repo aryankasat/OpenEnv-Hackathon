@@ -1,0 +1,23 @@
+{
+  "task_id": "task1",
+  "name": "Steady State",
+  "difficulty": "easy",
+  "description": "Standard replenishment cycle with no major alerts. The agent must maintain vial stock above daily patient demand at all 7 sites for 30 days without exceeding the logistics budget.",
+  "max_days": 30,
+  "max_budget": 500000,
+  "seed": 42,
+  "success_criteria": {
+    "minimum_score": 0.6,
+    "primary_metric": "service_ratio",
+    "description": "At least 60% of days must have all sites fully served"
+  },
+  "initial_conditions": {
+    "alerts": [],
+    "notes": "Clean start. No disruptions. Standard procurement cycle."
+  },
+  "grader_weights": {
+    "service_ratio": 0.6,
+    "thermal_debt_factor": 0.25,
+    "budget_factor": 0.15
+  }
+}

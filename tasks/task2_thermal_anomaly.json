@@ -1,0 +1,27 @@
+{
+  "task_id": "task2",
+  "name": "Thermal Anomaly",
+  "difficulty": "medium",
+  "description": "SITE_ALPHA's refrigeration unit is experiencing a slow leak. Thermal Debt accumulates at 8% per day. The agent must detect the anomaly from the rising temperature readings and evacuate the vials to other sites before the drugs become clinically unusable (Thermal Debt >= 1.0).",
+  "max_days": 30,
+  "max_budget": 500000,
+  "seed": 42,
+  "success_criteria": {
+    "minimum_score": 0.5,
+    "primary_metric": "vials_saved_ratio",
+    "description": "Move at least 50% of SITE_ALPHA vials before thermal debt exceeds 0.7"
+  },
+  "initial_conditions": {
+    "site_alpha": {
+      "alert": "fridge_malfunction",
+      "thermal_decay_rate": 0.08,
+      "temp_noise_std": 5.0
+    },
+    "notes": "Protocol amendment §6.7 active. Phase III patients have critical priority for re-supply."
+  },
+  "grader_weights": {
+    "mitigation_speed": 0.4,
+    "vials_saved": 0.4,
+    "thermal_integrity": 0.2
+  }
+}

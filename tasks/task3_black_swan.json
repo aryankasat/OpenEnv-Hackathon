@@ -1,0 +1,46 @@
+{
+  "task_id": "task3",
+  "name": "Black Swan",
+  "difficulty": "hard",
+  "description": "Simultaneous catastrophic events: HUB_COAST has been closed due to a transport strike, and a Category-3 hurricane is making landfall near SITE_DELTA and SITE_EPSILON. Both coastal sites have dangerously low stock (20 and 15 vials respectively). The agent must reroute coastal sites through HUB_CENTRAL and prioritise Phase III patients (SITE_ALPHA, SITE_DELTA) while managing thermal debt and rapid budget consumption.",
+  "max_days": 30,
+  "max_budget": 600000,
+  "seed": 42,
+  "success_criteria": {
+    "minimum_score": 0.4,
+    "primary_metric": "scientific_integrity",
+    "description": "Achieve SI >= 0.4 by prioritising Phase III sites and rerouting effectively"
+  },
+  "initial_conditions": {
+    "hub_coast": {
+      "is_isolated": true,
+      "alert": "hub_closure"
+    },
+    "site_delta": {
+      "vials": 20,
+      "alert": "hurricane"
+    },
+    "site_epsilon": {
+      "vials": 15,
+      "alert": "hurricane"
+    },
+    "global_alerts": [
+      {
+        "type": "hub_closure",
+        "affected": ["HUB_COAST"],
+        "severity": 0.9
+      },
+      {
+        "type": "hurricane",
+        "affected": ["SITE_DELTA", "SITE_EPSILON"],
+        "severity": 0.85
+      }
+    ],
+    "notes": "Emergency Protocol §9.1 active. Bio-hazard shipping pre-approved for Phase III. Budget exception: +$100,000."
+  },
+  "grader_weights": {
+    "scientific_integrity": 0.6,
+    "phase3_continuity": 0.25,
+    "reroute_bonus": 0.15
+  }
+}
