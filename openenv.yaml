@@ -1,0 +1,74 @@
+spec_version: 1
+name: fragilechain
+display_name: "OpenEnv-FragileChain: Pharmaceutical Cold-Chain Logistics"
+type: space
+runtime: fastapi
+app: server.app:app
+port: 8000
+
+description: |
+  A real-world pharmaceutical supply chain environment where AI agents must manage
+  clinical trial drug logistics under thermal stress and mass-disruption events.
+  
+  The agent controls a network of 7 sites (2 hubs + 5 clinical sites) with actions
+  to rebalance drug vials, reroute through different hubs, and scout for intelligence.
+  
+  Three tasks of increasing difficulty test: steady-state supply management (Easy),
+  thermal anomaly detection and response (Medium), and simultaneous hub closure +
+  hurricane response with Phase-III patient prioritisation (Hard).
+
+tags:
+  - openenv
+  - pharma
+  - logistics
+  - cold-chain
+  - supply-chain
+  - clinical-trials
+
+tasks:
+  - id: task1
+    name: "Steady State"
+    difficulty: easy
+    description: "Maintain vial stock above daily demand at all 7 sites across 30 days"
+    max_steps: 35
+    reward_range: [-1.0, 1.0]
+    
+  - id: task2
+    name: "Thermal Anomaly"
+    difficulty: medium
+    description: "Detect SITE_ALPHA fridge failure and evacuate stock before efficacy hits zero"
+    max_steps: 35
+    reward_range: [-1.0, 1.0]
+    
+  - id: task3
+    name: "Black Swan"
+    difficulty: hard
+    description: "Survive simultaneous HUB_COAST closure and hurricane while protecting Phase III patients"
+    max_steps: 35
+    reward_range: [-1.0, 1.0]
+
+action_space:
+  type: discrete_union
+  options:
+    - rebalance
+    - reroute_hub
+    - scout
+    - do_nothing
+
+observation_space:
+  type: structured
+  components:
+    - sites: list of SiteStatus (7 items)
+    - current_day: int
+    - remaining_budget: float
+    - global_alerts: list of GlobalAlert
+    - protocol_metadata: str (unstructured document excerpt)
+
+baseline:
+  model: gpt-4o-mini
+  seed: 42
+  scores:
+    task1: ~0.70
+    task2: ~0.52
+    task3: ~0.38
+  note: "Run baseline.py with OPENAI_API_KEY set to reproduce"
