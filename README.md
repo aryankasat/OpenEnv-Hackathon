@@ -10,14 +10,14 @@
 
 ## 🧬 Environment Description & Motivation
 
-The pharmaceutical industry wastes an estimated **$35 billion per year** in drug spoilage. A significant fraction occurs in clinical trial supply chains, where biologics must be kept between −20 °C and −80 °C while being shipped to geographically distributed trial sites.
+The pharmaceutical industry wastes an estimated **$35 billion per year** in drug spoilage. A significant fraction occurs in clinical supply chains, where biologics must be kept between −20 °C and −80 °C while being shipped to geographically distributed sites.
 
-**FragileChain** simulates this. An AI agent controls a network of 7 clinical trial sites (2 distribution hubs + 5 patient-facing sites) and must:
+**FragileChain** simulates this. An AI agent controls a network of 7 clinical sites (2 distribution hubs + 5 patient-facing sites) and must:
 
 - Maintain vial stock above daily patient demand at every site
 - Keep drugs within their thermal tolerance window (tracking **Cumulative Thermal Debt**)
 - Respond to disruption events — fridge failures, hub closures, hurricanes
-- Prioritise **Phase III** trial patients when resources are scarce
+- Prioritise **Phase III** patients when resources are scarce
 - Stay within a logistics budget
 
 This environment tests **Resource Allocation under Semantic Uncertainty**: the agent receives both structured sensor data and unstructured protocol document excerpts and must interpret them together to act well.
@@ -36,15 +36,15 @@ This environment tests **Resource Allocation under Semantic Uncertainty**: the a
             SITE_DELTA    SITE_EPSILON
 ```
 
-| Site ID | Type | Trial Phase | Notes |
-|---|---|---|---|
-| `HUB_CENTRAL` | Hub | Phase II | Main distribution hub — 500 vials |
-| `HUB_COAST` | Hub | Phase II | Coastal distribution hub — 300 vials |
-| `SITE_ALPHA` | Site | **Phase III** | Critical priority, high patient load |
-| `SITE_BETA` | Site | Phase I | Standard priority |
-| `SITE_GAMMA` | Site | Phase II | High priority |
-| `SITE_DELTA` | Site | **Phase III** | Critical priority, coastal |
-| `SITE_EPSILON` | Site | Phase I | Standard priority, coastal |
+| Site ID          | Type | Phase               | Notes                                 |
+| ---------------- | ---- | ------------------- | ------------------------------------- |
+| `HUB_CENTRAL`  | Hub  | Phase II            | Main distribution hub — 500 vials    |
+| `HUB_COAST`    | Hub  | Phase II            | Coastal distribution hub — 300 vials |
+| `SITE_ALPHA`   | Site | **Phase III** | Critical priority, high patient load  |
+| `SITE_BETA`    | Site | Phase I             | Standard priority                     |
+| `SITE_GAMMA`   | Site | Phase II            | High priority                         |
+| `SITE_DELTA`   | Site | **Phase III** | Critical priority, coastal            |
+| `SITE_EPSILON` | Site | Phase I             | Standard priority, coastal            |
 
 ---
 
@@ -52,30 +52,30 @@ This environment tests **Resource Allocation under Semantic Uncertainty**: the a
 
 Each `step()` / `reset()` returns an `Observation`:
 
-| Field | Type | Description |
-|---|---|---|
-| `sites` | `List[SiteStatus]` | Per-site status snapshot (7 items) |
-| `current_day` | `int` | Current simulation day (0–30) |
-| `remaining_budget` | `float` | Remaining logistics budget in USD |
-| `global_alerts` | `List[GlobalAlert]` | Active disruption events |
-| `protocol_metadata` | `str` | Unstructured trial protocol excerpt |
-| `done` | `bool` | Episode termination flag |
-| `reward` | `float` | Scalar reward from last action |
+| Field                 | Type                  | Description                        |
+| --------------------- | --------------------- | ---------------------------------- |
+| `sites`             | `List[SiteStatus]`  | Per-site status snapshot (7 items) |
+| `current_day`       | `int`               | Current simulation day (0–30)     |
+| `remaining_budget`  | `float`             | Remaining logistics budget in USD  |
+| `global_alerts`     | `List[GlobalAlert]` | Active disruption events           |
+| `protocol_metadata` | `str`               | Unstructured protocol excerpt      |
+| `done`              | `bool`              | Episode termination flag           |
+| `reward`            | `float`             | Scalar reward from last action     |
 
 ### SiteStatus fields
 
-| Field | Type | Range | Description |
-|---|---|---|---|
-| `site_id` | `str` | — | Unique identifier |
-| `vials_in_stock` | `int` | ≥ 0 | Current vial inventory |
-| `patient_load` | `int` | ≥ 0 | Number of active patients |
-| `trial_phase` | `str` | Phase I/II/III | Priority weight |
-| `current_temp_c` | `float` | −90 to +25 | Storage temperature in °C |
-| `avg_thermal_debt` | `float` | 0.0–1.0 | Cumulative thermal stress (1.0 = unusable) |
-| `days_until_stockout` | `int?` | ≥ 0 | Days until vials run out |
-| `is_hub` | `bool` | — | Distribution hub flag |
-| `is_isolated` | `bool` | — | Cut off from normal routes |
-| `alert` | `str` | enum | Active alert at this site |
+| Field                   | Type      | Range          | Description                                |
+| ----------------------- | --------- | -------------- | ------------------------------------------ |
+| `site_id`             | `str`   | —             | Unique identifier                          |
+| `vials_in_stock`      | `int`   | ≥ 0           | Current vial inventory                     |
+| `patient_load`        | `int`   | ≥ 0           | Number of active patients                  |
+| `phase`               | `str`   | Phase I/II/III | Priority weight                            |
+| `current_temp_c`      | `float` | −90 to +25    | Storage temperature in °C                 |
+| `avg_thermal_debt`    | `float` | 0.0–1.0       | Cumulative thermal stress (1.0 = unusable) |
+| `days_until_stockout` | `int?`  | ≥ 0           | Days until vials run out                   |
+| `is_hub`              | `bool`  | —             | Distribution hub flag                      |
+| `is_isolated`         | `bool`  | —             | Cut off from normal routes                 |
+| `alert`               | `str`   | enum           | Active alert at this site                  |
 
 ---
 
@@ -83,24 +83,24 @@ Each `step()` / `reset()` returns an `Observation`:
 
 Each step the agent sends one `Action`:
 
-| Field | Type | Description |
-|---|---|---|
-| `action_type` | `str` | `rebalance` · `reroute_hub` · `scout` · `do_nothing` |
-| `source_id` | `str?` | Source site (for `rebalance`) |
-| `target_id` | `str?` | Target site or hub |
-| `amount` | `int?` | Vials to move |
-| `mode` | `str` | `standard` ($12/vial) · `express` ($35) · `bio_hazard` ($80) |
-| `affected_sites` | `List[str]?` | Sites to reroute (for `reroute_hub`) |
-| `internal_thought` | `str` | Agent reasoning (logged, not used in sim) |
+| Field                | Type           | Description                                                          |
+| -------------------- | -------------- | -------------------------------------------------------------------- |
+| `action_type`      | `str`        | `rebalance` · `reroute_hub` · `scout` · `do_nothing`      |
+| `source_id`        | `str?`       | Source site (for `rebalance`)                                      |
+| `target_id`        | `str?`       | Target site or hub                                                   |
+| `amount`           | `int?`       | Vials to move                                                        |
+| `mode`             | `str`        | `standard` ($12/vial) · `express` ($35) · `bio_hazard` ($80) |
+| `affected_sites`   | `List[str]?` | Sites to reroute (for `reroute_hub`)                               |
+| `internal_thought` | `str`        | Agent reasoning (logged, not used in sim)                            |
 
 ### Semantics
 
-| Action | Effect | Cost |
-|---|---|---|
-| `rebalance` | Transfer `amount` vials from `source_id` to `target_id` | Amount × mode rate |
-| `reroute_hub` | Re-connect `affected_sites` through `target_id` hub; resolves isolation | $2,000 fixed |
-| `scout` | Reveal detailed sensor data for a site | $500 |
-| `do_nothing` | Advance one day | $0 |
+| Action          | Effect                                                                      | Cost                |
+| --------------- | --------------------------------------------------------------------------- | ------------------- |
+| `rebalance`   | Transfer `amount` vials from `source_id` to `target_id`               | Amount × mode rate |
+| `reroute_hub` | Re-connect `affected_sites` through `target_id` hub; resolves isolation | $2,000 fixed        |
+| `scout`       | Reveal detailed sensor data for a site                                      | $500                |
+| `do_nothing`  | Advance one day                                                             | $0                  |
 
 ---
 
@@ -153,12 +153,12 @@ Score = SI − Phase3StockoutPenalty + RerouteBonus
 
 Measured with `llama-3.3-70b-versatile` via Groq API, seed=42:
 
-| Task | Difficulty | Score | SI Score | Notes |
-|---|---|---|---|---|
-| task1 | Easy | **0.50** | 0.50 | Agent waits, then rebalances too late |
-| task2 | Medium | **0.09** | 0.00 | Over-scouts, misses the thermal evacuation window |
-| task3 | Hard | **0.67** | 0.79 | Phase III directive followed well |
-| **Average** | | **0.42** | | |
+| Task              | Difficulty | Score          | SI Score | Notes                                             |
+| ----------------- | ---------- | -------------- | -------- | ------------------------------------------------- |
+| task1             | Easy       | **0.50** | 0.50     | Agent waits, then rebalances too late             |
+| task2             | Medium     | **0.09** | 0.00     | Over-scouts, misses the thermal evacuation window |
+| task3             | Hard       | **0.67** | 0.79     | Phase III directive followed well                 |
+| **Average** |            | **0.42** |          |                                                   |
 
 Scores saved to `outputs/evals/baseline_scores.json` after running `baseline.py`.
 
@@ -214,13 +214,13 @@ The mandatory submission script. Uses the OpenAI client pointed at any compatibl
 
 ### Environment variables
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `HF_TOKEN` / `API_KEY` | ✅ | — | API key |
-| `API_BASE_URL` | — | `https://api.groq.com/openai/v1` | LLM endpoint |
-| `MODEL_NAME` | — | `llama-3.3-70b-versatile` | Model identifier |
-| `FRAGILECHAIN_TASK` | — | `task1` | Task to run (`task1`/`task2`/`task3`) |
-| `FRAGILECHAIN_SEED` | — | `42` | RNG seed |
+| Variable                   | Required | Default                            | Description                                 |
+| -------------------------- | -------- | ---------------------------------- | ------------------------------------------- |
+| `HF_TOKEN` / `API_KEY` | ✅       | —                                 | API key                                     |
+| `API_BASE_URL`           | —       | `https://api.groq.com/openai/v1` | LLM endpoint                                |
+| `MODEL_NAME`             | —       | `llama-3.3-70b-versatile`        | Model identifier                            |
+| `FRAGILECHAIN_TASK`      | —       | `task1`                          | Task to run (`task1`/`task2`/`task3`) |
+| `FRAGILECHAIN_SEED`      | —       | `42`                             | RNG seed                                    |
 
 ### Run
 
@@ -262,6 +262,7 @@ pip install openenv-core
 ```
 
 The script runs:
+
 1. **Ping** — `POST /reset` returns 200 on your live HF Space
 2. **Docker** — `docker build` succeeds within 600 s
 3. **Spec** — `openenv validate` passes
@@ -280,11 +281,11 @@ python3 baseline.py
 
 Supported Groq models:
 
-| Model | Speed | Quality |
-|---|---|---|
-| `llama-3.3-70b-versatile` | ★★★ | ★★★★★ (default) |
-| `llama3-8b-8192` | ★★★★★ | ★★★ |
-| `mixtral-8x7b-32768` | ★★★★ | ★★★★ |
+| Model                       | Speed      | Quality              |
+| --------------------------- | ---------- | -------------------- |
+| `llama-3.3-70b-versatile` | ★★★     | ★★★★★ (default) |
+| `llama3-8b-8192`          | ★★★★★ | ★★★               |
+| `mixtral-8x7b-32768`      | ★★★★   | ★★★★             |
 
 ---
 
