@@ -82,13 +82,17 @@ class Task1Grader(BaseGrader):
     )
 
     def _on_record_step(self) -> None:
-        all_served = all(
-            s.vials >= s.daily_demand for s in self.engine.sites.values()
-        )
-        if all_served:
-            self._days_fully_served += 1
-        else:
-            self._stockout_events += 1
+        # Calculate per-site partial credit instead of binary all-or-nothing
+        sites = list(self.engine.sites.values())
+        if sites:
+            per_site_ratio = sum(
+                min(1.0, s.vials / s.daily_demand) if s.daily_demand > 0 else 1.0
+                for s in sites
+            ) / len(sites)
+            if per_site_ratio >= 0.99:  # threshold for "fully served"
+                self._days_fully_served += 1
+            else:
+                self._stockout_events += 1
 
     def compute_score(self) -> TaskResult:
         total_days = max(1, self._days_recorded)
@@ -190,8 +194,8 @@ class Task2Grader(BaseGrader):
         # Thermal debt factor for SITE_ALPHA
         thermal_factor = 1.0 - alpha_debt
 
-        # Penalty if Alpha was fully compromised
-        compromise_penalty = 0.3 if self._alpha_compromised else 0.0
+        # Proportional penalty for debt above 1.0 (continuous, not hard cliff)
+        compromise_penalty = min(0.3, max(0.0, alpha_debt - 1.0) * 0.05) if alpha_debt > 1.0 else 0.0
 
         score = (
             0.4 * speed_score
@@ -250,6 +254,10 @@ class Task3Grader(BaseGrader):
         self._reroute_performed: bool = False
         self._per_site_delivered: Dict[str, int] = {}
         self._per_site_demand: Dict[str, int] = {}
+        # Initialize tracking dicts for actual delivery
+        for site_id in self.engine.sites.keys():
+            self._per_site_delivered[site_id] = 0
+            self._per_site_demand[site_id] = 0
 
     def _on_record_step(self) -> None:
         # Track Phase III stockout events
@@ -257,6 +265,13 @@ class Task3Grader(BaseGrader):
             site = self.engine.sites.get(sid)
             if site and site.vials < site.daily_demand * 3:
                 self._phase3_stockout_days += 1
+
+        # Track actual cumulative doses delivered per site (not estimated)
+        for site in self.engine.sites.values():
+            # Actual doses delivered = min(available vials, daily demand)
+            actual_delivered = min(site.vials, site.daily_demand)
+            self._per_site_delivered[site.site_id] += actual_delivered
+            self._per_site_demand[site.site_id] += site.daily_demand
 
         # Check if agent rerouted
         for sid in ["SITE_DELTA", "SITE_EPSILON"]:
@@ -299,20 +314,18 @@ class Task3Grader(BaseGrader):
         """
         SI = (Σ doses_delivered_i * priority_weight_i / total_demand) * (1 - mean_thermal_debt)
 
-        Approximated using mean weighted delivery ratio.
+        Uses actual cumulative delivery tracking (not estimates).
         """
         if self.engine.total_demand == 0:
             return 0.0
 
-        # Compute weighted delivery ratio per site
-        n_sites = len(self.engine.sites)
+        # Compute weighted delivery ratio per site using actual tracked values
         weighted_delivered = 0.0
 
         for site in self.engine.sites.values():
             pw = site.priority_weight()
-            delivered_per_day = site.daily_demand  # approximate
-            est_delivered = delivered_per_day * self.engine.current_day
-            weighted_delivered += est_delivered * pw
+            actual_delivered = self._per_site_delivered.get(site.site_id, 0)
+            weighted_delivered += actual_delivered * pw
 
         mean_debt = self._mean_thermal_debt()
         total_demand = self.engine.total_demand
