@@ -74,6 +74,56 @@ try:
     )
     app.add_middleware(ActionWrapperMiddleware)
     _using_openenv_core = True
+
+    # Override OpenAPI to show the simplified flat payload example
+    def wrapped_openapi():
+        if app.openapi_schema:
+            return app.openapi_schema
+        
+        # Build the initial schema
+        from fastapi.openapi.utils import get_openapi
+        schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            openapi_version=app.openapi_version,
+            description=app.description,
+            routes=app.routes,
+        )
+        
+        # Inject the custom example into the /step endpoint
+        if "/step" in schema.get("paths", {}):
+            try:
+                # Find the request body content
+                step_post = schema["paths"]["/step"]["post"]
+                content = step_post["requestBody"]["content"]["application/json"]
+                
+                # Update the example to the user's requested format
+                content["example"] = {
+                    "action_type": "do_nothing",
+                    "internal_thought": "testing step"
+                }
+                
+                # Also update the schema itself so it shows the flat keys
+                # instead of the nested 'action' structure
+                content["schema"] = {
+                    "title": "Action",
+                    "type": "object",
+                    "properties": {
+                        "action_type": {"title": "Action Type", "type": "string"},
+                        "internal_thought": {"title": "Internal Thought", "type": "string"},
+                        "source_id": {"type": "string", "nullable": True},
+                        "target_id": {"type": "string", "nullable": True},
+                        "amount": {"type": "integer", "nullable": True}
+                    },
+                    "required": ["action_type"]
+                }
+            except Exception:
+                pass
+                
+        app.openapi_schema = schema
+        return app.openapi_schema
+    
+    app.openapi = wrapped_openapi
 except ImportError:
     _using_openenv_core = False
     app = FastAPI(
