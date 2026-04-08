@@ -258,7 +258,6 @@ def run_episode() -> None:
         print(f"[DEBUG] Episode error: {exc}", flush=True)
 
     finally:
-        engine.close()
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
 
