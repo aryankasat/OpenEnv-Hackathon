@@ -1,3 +1,12 @@
+---
+title: OpenEnv FragileChain
+emoji: 🧊
+colorFrom: blue
+colorTo: cyan
+sdk: docker
+pinned: false
+---
+
 # 🧊 OpenEnv-FragileChain
 
 > A pharmaceutical cold-chain logistics environment for AI agents — OpenEnv hackathon submission
