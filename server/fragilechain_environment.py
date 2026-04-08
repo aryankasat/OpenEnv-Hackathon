@@ -175,28 +175,6 @@ class FragileChainEnvironment(Environment):
     def get_metadata(self) -> Dict[str, Any]:
         """Return environment metadata for the /metadata endpoint."""
         return {
-            "env_name": "fragilechain",
-            "version": "0.1.0",
-            "task_id": self._task_id,
-            "max_days": self._max_days,
-            "tasks": [
-                {
-                    "task_id": "task1",
-                    "difficulty": "easy",
-                    "description": "Steady State – maintain supply above demand for 30 days",
-                    "max_days": 30,
-                },
-                {
-                    "task_id": "task2",
-                    "difficulty": "medium",
-                    "description": "Thermal Anomaly – detect and mitigate fridge failure at SITE_ALPHA",
-                    "max_days": 30,
-                },
-                {
-                    "task_id": "task3",
-                    "difficulty": "hard",
-                    "description": "Black Swan – hub closure + hurricane, prioritise Phase III",
-                    "max_days": 30,
-                },
-            ],
+            "name": "fragilechain",
+            "description": "Pharmaceutical cold-chain logistics environment for AI agents. Simulates clinical trial supply chain management under thermal stress and mass-disruption events."
         }
