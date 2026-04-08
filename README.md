@@ -104,48 +104,135 @@ Each step the agent sends one `Action`:
 
 ---
 
-## 📏 Reward Function
+## 📏 Unified Reward Function
+
+**All tasks use the same per-step reward function:**
 
 ```
 R_t = 0.4 × ΔPSL
-    − 0.2 × (ΔFiscalCost / MaxBudget)
-    − 0.2 × NormalisedShippingCost
+    − 0.2 × (FiscalCost / MaxBudget)
+    − 0.2 × (ShippingCost / MaxBudget × 0.01)
     − 0.15 × MeanThermalDebt
-    − 0.05 × StockoutFraction
+    − 0.05 × StockoutCount
 ```
 
-**PSL (Patient Service Level)** = fraction of sites where `vials_in_stock ≥ daily_demand`.
+Where:
+- **ΔPSL** = Patient Service Level delta (change from previous step)
+- **PSL** = fraction of sites where `vials_in_stock ≥ daily_demand`
+- **FiscalCost** = cost of actions (rebalance, reroute, scout)
+- **ShippingCost** = cost of shipping mode (standard, express, bio_hazard)
+- **MeanThermalDebt** = average thermal debt across all sites
+- **StockoutCount** = number of sites with `vials ≤ 0`
 
-Provides continuous signal over the full trajectory: partial progress is rewarded, budget burn, debt growth, and stockouts are penalised at every step.
+**Clipped to [−1.0, 1.0]** to prevent extreme outliers.
+
+This **unified function** provides continuous learning signal across all three tasks:
+- Positive reward for improving PSL and staying cool
+- Gradual penalties for budget burn, thermal stress, and stockouts
+- Works identically in task1, task2, task3
+
+### Task-Specific Final Scoring (Graders Only)
+
+Task-specific nuances appear **only in the final TaskResult score** (computed after episode end). Per-step rewards are identical:
+
+| Task | Final Score Formula | Focus |
+|------|---------|---------|
+| **Task 1** | `(per_site_ratio) × (1 − 0.5·MeanDebt) × BudgetFactor` | Service consistency (now with per-site partial credit) |
+| **Task 2** | `0.4·SpeedScore + 0.4·VialsSavedRatio + 0.2·ThermalIntegrity − ContinuousPenalty` | Mitigation quality (penalty now proportional not cliff-based) |
+| **Task 3** | `SI − Phase3StockoutPenalty + RerouteBonus` where SI uses actual delivery | Scientific Integrity (uses real vs. estimated doses) |
 
 ---
 
 ## 📋 Tasks
 
+All tasks use the **same unified per-step reward function** (above). Task differences are in the **final grader scoring only:**
+
 ### Task 1 — Steady State *(Easy)*
 
 Maintain supply above daily demand at all 7 sites for 30 days under normal conditions.
 
+**Final Grader Score:**
 ```
-Score = (days_all_served / total_days) × (1 − 0.5·MeanDebt) × (0.8 + 0.2·BudgetFraction)
+Score = (per_site_ratio) × (1 − 0.5·MeanDebt) × (0.8 + 0.2·BudgetFraction)
 ```
 
 ### Task 2 — Thermal Anomaly *(Medium)*
 
 SITE_ALPHA's fridge is leaking. `thermal_debt` rises at 8 %/day. Evacuate stock before efficacy hits zero.
 
+**Final Grader Score:**
 ```
-Score = 0.4·SpeedScore + 0.4·VialsSavedRatio + 0.2·ThermalIntegrity
+Score = 0.4·SpeedScore + 0.4·VialsSavedRatio + 0.2·ThermalIntegrity − ContinuousPenalty
 ```
 
 ### Task 3 — Black Swan *(Hard)*
 
 Simultaneous HUB_COAST closure + hurricane at SITE_DELTA/EPSILON. Must reroute and protect Phase III patients.
 
+**Final Grader Score:**
 ```
 SI    = (Σ doses·priority_weight / total_demand) × (1 − mean_thermal_debt)
 Score = SI − Phase3StockoutPenalty + RerouteBonus
 ```
+
+---
+
+## 🔧 Critical Fixes & Improvements
+
+The **per-step reward function is unified and identical across all tasks.** The following fixes apply to the **final grader scoring** (TaskResult computed at episode end), ensuring fair evaluation while maintaining consistent learning signals:
+
+### Fix 1: Task 1 — Partial Credit for Service Ratio
+
+**Problem:** Original binary all-or-nothing rule in grader only counted a day as "served" if ALL 7 sites had stock ≥ demand. Now grader receives final score reflecting partial progress.
+
+**Solution:** In Task1Grader's final scoring, calculate per-site partial fulfillment ratio:
+```python
+per_site_ratio = sum(
+    min(1.0, site.vials / site.daily_demand) for site in sites
+) / len(sites)
+```
+
+Now the final Task 1 score receives continuous credit for partial supply: serving 6/7 sites fully gets ~0.86 credit instead of 0.
+
+**Impact:** Final grader score reflects partial progress; per-step reward unchanged (unified).
+
+---
+
+### Fix 2: Task 2 — Continuous Compromise Penalty
+
+**Problem:** Hard cliff at `thermal_debt >= 1.0` in grader final score: either 0.0 or −0.3 penalty, discontinuous.
+
+**Solution:** In Task2Grader's final scoring, use proportional penalty function:
+```python
+compromise_penalty = min(0.3, max(0.0, alpha_debt - 1.0) * 0.05) if alpha_debt > 1.0 else 0.0
+```
+
+Penalty grows smoothly: at debt=1.0 → 0, debt=1.5 → −0.025, debt=7.0 → −0.3 (capped).
+
+**Impact:** Final grader score has smooth gradient. Per-step reward unchanged (unified).
+
+---
+
+### Fix 3: Task 3 — Actual vs. Estimated Delivery
+
+**Problem:** SI calculation in grader used estimated delivery (daily_demand × current_day), ignoring actual stockouts. Final score nearly same whether agent performed well or randomly.
+
+**Solution:** In Task3Grader's `_on_record_step()`, track actual cumulative doses per site:
+```python
+for site in self.engine.sites.values():
+    actual_delivered = min(site.vials, site.daily_demand)
+    self._per_site_delivered[site.site_id] += actual_delivered
+```
+
+Then use real values in final SI computation:
+```python
+weighted_delivered = sum(
+    self._per_site_delivered[site.site_id] * site.priority_weight()
+    for site in self.engine.sites.values()
+)
+```
+
+**Impact:** Final grader score now reflects actual patient-days served. Per-step reward unchanged (unified).
 
 ---
 
@@ -244,10 +331,28 @@ FRAGILECHAIN_TASK=task3 python3 inference.py
 ```
 [START] task=task1 env=fragilechain model=llama-3.3-70b-versatile
 [STEP]  step=1 action={"action_type":"do_nothing"} reward=0.00 done=false error=null
-[STEP]  step=2 action={"action_type":"rebalance","source_id":"HUB_CENTRAL","target_id":"SITE_ALPHA","amount":30} reward=-0.01 done=false error=null
+[STEP]  step=2 action={"action_type":"rebalance","source_id":"HUB_CENTRAL","target_id":"SITE_ALPHA","amount":30} reward=-0.01 done=false error="parsing failed"
 ...
 [END]   success=true steps=14 score=0.500 rewards=0.00,-0.01,...
 ```
+
+### Inference Script Fixes
+
+Two critical fixes ensure robust execution:
+
+1. **Error Field Handling** — Error messages are now properly JSON-quoted in `[STEP]` output:
+   ```python
+   err = json.dumps(error) if error else "null"
+   ```
+   This ensures valid JSON even if the error message contains special characters.
+
+2. **Resource Cleanup** — Engine is properly closed in finally block:
+   ```python
+   finally:
+       engine.close()
+       log_end(...)
+   ```
+   Prevents resource leaks and ensures proper cleanup even if exceptions occur.
 
 ---
 
