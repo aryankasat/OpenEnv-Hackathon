@@ -6,6 +6,11 @@ runtime: fastapi
 app: server.app:app
 port: 8000
 
+graders:
+  - task1
+  - task2
+  - task3
+
 description: |
   A real-world pharmaceutical supply chain environment where AI agents must manage
   clinical trial drug logistics under thermal stress and mass-disruption events.
