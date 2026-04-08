@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import sys
 import os
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 from uuid import uuid4
 
 # Support both in-repo and standalone imports
@@ -144,3 +144,50 @@ class FragileChainEnvironment(Environment):
     # Alias for compatibility with some OpenEnv versions
     def get_state(self) -> State:
         return self._state
+
+    # ------------------------------------------------------------------
+    # Additional methods required by openenv-core http_server
+    # ------------------------------------------------------------------
+
+    async def reset_async(
+        self,
+        seed: Optional[int] = None,
+        episode_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Observation:
+        """Async version of reset – delegates to synchronous reset."""
+        return self.reset(seed=seed, episode_id=episode_id, task_id=task_id, **kwargs)
+
+    def close(self) -> None:
+        """Clean up resources. No-op for this environment."""
+        pass
+
+    def get_metadata(self) -> Dict[str, Any]:
+        """Return environment metadata for the /metadata endpoint."""
+        return {
+            "env_name": "fragilechain",
+            "version": "0.1.0",
+            "task_id": self._task_id,
+            "max_days": self._max_days,
+            "tasks": [
+                {
+                    "task_id": "task1",
+                    "difficulty": "easy",
+                    "description": "Steady State – maintain supply above demand for 30 days",
+                    "max_days": 30,
+                },
+                {
+                    "task_id": "task2",
+                    "difficulty": "medium",
+                    "description": "Thermal Anomaly – detect and mitigate fridge failure at SITE_ALPHA",
+                    "max_days": 30,
+                },
+                {
+                    "task_id": "task3",
+                    "difficulty": "hard",
+                    "description": "Black Swan – hub closure + hurricane, prioritise Phase III",
+                    "max_days": 30,
+                },
+            ],
+        }
