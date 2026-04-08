@@ -28,6 +28,42 @@ from server.fragilechain_environment import FragileChainEnvironment
 # Try to use openenv's create_app; fall back to manual FastAPI wiring
 # ---------------------------------------------------------------------------
 
+class ActionWrapperMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["path"] == "/step" and scope["method"] == "POST":
+            # intercept body
+            body = b""
+            more_body = True
+            messages = []
+            while more_body:
+                message = await receive()
+                messages.append(message)
+                body += message.get("body", b"")
+                more_body = message.get("more_body", False)
+            
+            try:
+                import json
+                data = json.loads(body)
+                if isinstance(data, dict) and "action" not in data and "action_type" in data:
+                    # wrap it
+                    new_body = json.dumps({"action": data}).encode("utf-8")
+                    messages = [{"type": "http.request", "body": new_body, "more_body": False}]
+            except Exception:
+                pass
+                
+            # create a playback receiver
+            async def new_receive():
+                if messages:
+                    return messages.pop(0)
+                return {"type": "http.request", "body": b"", "more_body": False}
+                
+            return await self.app(scope, new_receive, send)
+            
+        return await self.app(scope, receive, send)
+
 try:
     from openenv.core.env_server.http_server import create_app
     app = create_app(
@@ -36,6 +72,7 @@ try:
         Observation,
         env_name="fragilechain",
     )
+    app.add_middleware(ActionWrapperMiddleware)
     _using_openenv_core = True
 except ImportError:
     _using_openenv_core = False
