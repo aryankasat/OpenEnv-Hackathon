@@ -132,7 +132,7 @@ def log_start(task: str, env: str, model: str) -> None:
 
 
 def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
-    err = error if error else "null"
+    err = json.dumps(error) if error else "null"
     print(
         f"[STEP] step={step} action={action} reward={reward:.2f} "
         f"done={str(done).lower()} error={err}",
@@ -258,6 +258,7 @@ def run_episode() -> None:
         print(f"[DEBUG] Episode error: {exc}", flush=True)
 
     finally:
+        engine.close()
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
 
