@@ -80,30 +80,33 @@ except ImportError:
     async def state():
         return _env.state.dict()
 
-    @app.get("/tasks")
-    async def list_tasks():
-        return {
-            "tasks": [
-                {
-                    "task_id": "task1",
-                    "difficulty": "easy",
-                    "description": "Steady State – maintain supply above demand for 30 days",
-                    "max_days": 30,
-                },
-                {
-                    "task_id": "task2",
-                    "difficulty": "medium",
-                    "description": "Thermal Anomaly – detect and mitigate fridge failure at SITE_ALPHA",
-                    "max_days": 30,
-                },
-                {
-                    "task_id": "task3",
-                    "difficulty": "hard",
-                    "description": "Black Swan – hub closure + hurricane, prioritise Phase III",
-                    "max_days": 30,
-                },
-            ]
-        }
+
+
+
+@app.get("/tasks")
+async def list_tasks():
+    return {
+        "tasks": [
+            {
+                "task_id": "task1",
+                "difficulty": "easy",
+                "description": "Steady State – maintain supply above demand for 30 days",
+                "max_days": 30,
+            },
+            {
+                "task_id": "task2",
+                "difficulty": "medium",
+                "description": "Thermal Anomaly – detect and mitigate fridge failure at SITE_ALPHA",
+                "max_days": 30,
+            },
+            {
+                "task_id": "task3",
+                "difficulty": "hard",
+                "description": "Black Swan – hub closure + hurricane, prioritise Phase III",
+                "max_days": 30,
+            },
+        ]
+    }
 
 
 def main():
