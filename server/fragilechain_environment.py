@@ -136,6 +136,15 @@ class FragileChainEnvironment(Environment):
 
         return obs
 
+    async def step_async(
+        self,
+        action: Action,
+        timeout_s: Optional[float] = None,
+        **kwargs: Any,
+    ) -> Observation:
+        """Async wrapper for step."""
+        return self.step(action, timeout_s, **kwargs)
+
     @property
     def state(self) -> State:
         """Return current episode state."""
