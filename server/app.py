@@ -179,18 +179,21 @@ async def list_tasks():
                 "difficulty": "easy",
                 "description": "Steady State – maintain supply above demand for 30 days",
                 "max_days": 30,
+                "has_grader": True,
             },
             {
                 "task_id": "task2",
                 "difficulty": "medium",
                 "description": "Thermal Anomaly – detect and mitigate fridge failure at SITE_ALPHA",
                 "max_days": 30,
+                "has_grader": True,
             },
             {
                 "task_id": "task3",
                 "difficulty": "hard",
                 "description": "Black Swan – hub closure + hurricane, prioritise Phase III",
                 "max_days": 30,
+                "has_grader": True,
             },
         ]
     }

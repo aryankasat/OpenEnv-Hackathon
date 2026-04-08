@@ -32,6 +32,7 @@ tasks:
     description: "Maintain vial stock above daily demand at all 7 sites across 30 days"
     max_steps: 35
     reward_range: [-1.0, 1.0]
+    has_grader: true
     
   - id: task2
     name: "Thermal Anomaly"
@@ -39,6 +40,7 @@ tasks:
     description: "Detect SITE_ALPHA fridge failure and evacuate stock before efficacy hits zero"
     max_steps: 35
     reward_range: [-1.0, 1.0]
+    has_grader: true
     
   - id: task3
     name: "Black Swan"
@@ -46,6 +48,7 @@ tasks:
     description: "Survive simultaneous HUB_COAST closure and hurricane while protecting Phase III patients"
     max_steps: 35
     reward_range: [-1.0, 1.0]
+    has_grader: true
 
 action_space:
   type: discrete_union
