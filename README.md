@@ -2,7 +2,7 @@
 title: OpenEnv FragileChain
 emoji: 🧊
 colorFrom: blue
-colorTo: cyan
+colorTo: indigo
 sdk: docker
 pinned: false
 ---
