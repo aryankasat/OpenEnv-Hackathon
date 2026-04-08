@@ -118,7 +118,9 @@ R_t = 0.4 × ΔPSL
 
 Where:
 - **ΔPSL** = Patient Service Level delta (change from previous step)
-- **PSL** = fraction of sites where `vials_in_stock ≥ daily_demand`
+- **PSL** = **weighted average** of per-site fulfillment ratios: `mean(min(1.0, site.vials / site.daily_demand))`
+  - This provides **continuous partial credit**: a site at 50% supply gets 0.5 contribution, not binary 0 or 1
+  - Enables smooth learning gradient from sparse initial policies to optimal ones
 - **FiscalCost** = cost of actions (rebalance, reroute, scout)
 - **ShippingCost** = cost of shipping mode (standard, express, bio_hazard)
 - **MeanThermalDebt** = average thermal debt across all sites
@@ -127,9 +129,10 @@ Where:
 **Clipped to [−1.0, 1.0]** to prevent extreme outliers.
 
 This **unified function** provides continuous learning signal across all three tasks:
-- Positive reward for improving PSL and staying cool
+- Positive reward for improving PSL and staying cool (via partial site fulfillment)
 - Gradual penalties for budget burn, thermal stress, and stockouts
 - Works identically in task1, task2, task3
+- Enables agents to see progress from 0 → 1 supply via smooth ΔPSL signal
 
 ### Task-Specific Final Scoring (Graders Only)
 
@@ -179,26 +182,29 @@ Score = SI − Phase3StockoutPenalty + RerouteBonus
 
 ## 🔧 Critical Fixes & Improvements
 
-The **per-step reward function is unified and identical across all tasks.** The following fixes apply to the **final grader scoring** (TaskResult computed at episode end), ensuring fair evaluation while maintaining consistent learning signals:
+The **per-step reward function is unified and identical across all tasks.** The following fixes enhance both per-step learning and final grader scoring:
 
-### Fix 1: Task 1 — Partial Credit for Service Ratio
+### Fix 1: Partial Credit for Service Ratio (Per-Step + Final Grader)
 
-**Problem:** Original binary all-or-nothing rule in grader only counted a day as "served" if ALL 7 sites had stock ≥ demand. Now grader receives final score reflecting partial progress.
+**Problem:** Original binary all-or-nothing rule: only gave reward if ALL 7 sites met demand. A single shortfall meant zero credit for that step, making reward extremely sparse and hard to learn from.
 
-**Solution:** In Task1Grader's final scoring, calculate per-site partial fulfillment ratio:
-```python
-per_site_ratio = sum(
-    min(1.0, site.vials / site.daily_demand) for site in sites
-) / len(sites)
-```
+**Solution:** 
+- **Per-step reward:** Update `_compute_psl()` to use weighted average of per-site fulfillment:
+  ```python
+  PSL = mean(min(1.0, site.vials / site.daily_demand) for each site)
+  ```
+  A site at 50% supply now contributes 0.5 to PSL, not binary 0 or 1.
 
-Now the final Task 1 score receives continuous credit for partial supply: serving 6/7 sites fully gets ~0.86 credit instead of 0.
+- **Final grader (Task 1):** Calculate per-site partial ratio in final score:
+  ```python
+  per_site_ratio = sum(min(1.0, s.vials / s.daily_demand) for s in sites) / len(sites)
+  ```
 
-**Impact:** Final grader score reflects partial progress; per-step reward unchanged (unified).
+**Impact:** Continuous dense reward signal at every step; agents see progress from 0 → 1 supply smoothly rather than waiting for all-or-nothing flip.
 
 ---
 
-### Fix 2: Task 2 — Continuous Compromise Penalty
+### Fix 2: Continuous Compromise Penalty (Final Grader Only)
 
 **Problem:** Hard cliff at `thermal_debt >= 1.0` in grader final score: either 0.0 or −0.3 penalty, discontinuous.
 
@@ -213,7 +219,7 @@ Penalty grows smoothly: at debt=1.0 → 0, debt=1.5 → −0.025, debt=7.0 → �
 
 ---
 
-### Fix 3: Task 3 — Actual vs. Estimated Delivery
+### Fix 3: Actual vs. Estimated Delivery (Final Grader Only)
 
 **Problem:** SI calculation in grader used estimated delivery (daily_demand × current_day), ignoring actual stockouts. Final score nearly same whether agent performed well or randomly.
 

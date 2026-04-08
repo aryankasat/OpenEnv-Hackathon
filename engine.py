@@ -513,17 +513,20 @@ class ColdChainEngine:
 
     def _compute_psl(self) -> float:
         """
-        Patient Service Level: fraction of patients currently receiving adequate vials.
+        Patient Service Level: weighted average of per-site fulfillment ratios.
 
-        PSL = (sites with vials >= daily_demand) / total sites
+        PSL = mean(min(1.0, site.vials / site.daily_demand) for each site)
+        
+        This provides continuous partial credit: a site at 50% supply gets 0.5 credit,
+        not binary 0 or 1. Enables smooth gradient for per-step reward learning.
         """
         if not self.sites:
             return 0.0
-        served = sum(
-            1 for s in self.sites.values()
-            if s.vials >= s.daily_demand
-        )
-        return served / len(self.sites)
+        per_site_ratios = [
+            min(1.0, s.vials / s.daily_demand) if s.daily_demand > 0 else 1.0
+            for s in self.sites.values()
+        ]
+        return sum(per_site_ratios) / len(per_site_ratios)
 
     def _is_catastrophic_failure(self) -> bool:
         """End episode early if budget exhausted or all phase-III sites gone."""
