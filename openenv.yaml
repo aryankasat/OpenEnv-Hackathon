@@ -82,7 +82,7 @@ inference:
     - MODEL_NAME
 
 baseline:
-  model: meta-llama/Llama-3.3-70B-Instruct
+  model: Qwen/Qwen2.5-72B-Instruct
   seed: 42
   scores:
     task1: 0.50
