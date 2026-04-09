@@ -44,9 +44,9 @@ except ImportError:
     sys.exit(1)
 
 # ── Configuration Defaults ───────────────────────────────────────────────────
-DEFAULT_ENV_URL      = os.getenv("ENV_URL", "http://localhost:8000")
-DEFAULT_API_BASE_URL = os.getenv("API_BASE_URL", "https://api.groq.com/openai/v1")
-DEFAULT_MODEL_NAME   = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
+DEFAULT_ENV_URL      = os.getenv("ENV_URL", "https://kenzhok-code-review-env.hf.space")
+DEFAULT_API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+DEFAULT_MODEL_NAME   = os.getenv("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
 DEFAULT_HF_TOKEN     = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 
 BENCHMARK    = "fragilechain"

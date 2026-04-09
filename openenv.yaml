@@ -73,10 +73,10 @@ observation_space:
     - protocol_metadata: str (unstructured document excerpt)
 
 baseline:
-  model: gpt-4o-mini
+  model: meta-llama/Llama-3.3-70B-Instruct
   seed: 42
   scores:
-    task1: ~0.70
-    task2: ~0.52
-    task3: ~0.38
-  note: "Run baseline.py with OPENAI_API_KEY set to reproduce"
+    task1: 0.50
+    task2: 0.09
+    task3: 0.67
+  note: "Run baseline.py with HF_TOKEN set to reproduce results via Hugging Face Router"
