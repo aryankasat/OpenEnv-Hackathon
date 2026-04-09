@@ -72,6 +72,15 @@ observation_space:
     - global_alerts: list of GlobalAlert
     - protocol_metadata: str (unstructured document excerpt)
 
+inference:
+  script: inference.py
+  command: "python inference.py --task all"
+  env_vars:
+    - API_KEY
+    - API_BASE_URL
+    - ENV_URL
+    - MODEL_NAME
+
 baseline:
   model: meta-llama/Llama-3.3-70B-Instruct
   seed: 42
