@@ -46,10 +46,10 @@ except ImportError:
 # ── Configuration ────────────────────────────────────────────────────────────
 # IMPORTANT: API_BASE_URL and API_KEY MUST come from environment variables
 # injected by the OpenEnv judge. Do NOT hardcode or fall back to other providers.
-DEFAULT_ENV_URL      = os.getenv("ENV_URL", "http://localhost:8000")
-DEFAULT_API_BASE_URL = os.environ.get("API_BASE_URL")          # required — no fallback
-DEFAULT_API_KEY      = os.environ.get("API_KEY")               # required — no fallback, do NOT use HF_TOKEN
-DEFAULT_MODEL_NAME   = os.getenv("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
+DEFAULT_ENV_URL      = os.environ["ENV_URL"]
+DEFAULT_API_BASE_URL = os.environ["API_BASE_URL"]          # required — no fallback
+DEFAULT_API_KEY      = os.environ["API_KEY"]              # required — no fallback, do NOT use HF_TOKEN
+DEFAULT_MODEL_NAME   = os.environ("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
 
 BENCHMARK         = "fragilechain"
 MAX_STEPS         = 35
