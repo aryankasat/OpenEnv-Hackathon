@@ -6,13 +6,13 @@ Mandatory submission script for the OpenEnv Hackathon.
 Runs a full episode against the FragileChain environment server using an LLM
 to decide logistics actions. Prints structured logs consumed by the judge.
 
-Required environment variables:
-    HF_TOKEN           Your Hugging Face / API key  (or set API_KEY)
+Required environment variables (injected by OpenEnv judge infrastructure):
+    API_KEY            LLM API key provided by the LiteLLM proxy
+    API_BASE_URL       LLM proxy endpoint provided by OpenEnv
 
 Optional environment variables:
     ENV_URL            Environment server URL (defaults to http://localhost:8000)
-    API_BASE_URL       LLM endpoint (defaults to https://api.groq.com/openai/v1)
-    MODEL_NAME         Model identifier (defaults to llama-3.3-70b-versatile)
+    MODEL_NAME         Model identifier (defaults to meta-llama/Llama-3.3-70B-Instruct)
 
 STDOUT FORMAT (machine-parsed by judge):
     [START] task=<task_name> env=fragilechain model=<model_name>
@@ -43,14 +43,17 @@ except ImportError:
     print("[ERROR] openai not installed. Run: pip install openai", flush=True)
     sys.exit(1)
 
-# ── Configuration Defaults ───────────────────────────────────────────────────
-DEFAULT_ENV_URL      = os.getenv("ENV_URL", "https://kenzhok-code-review-env.hf.space")
-DEFAULT_API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-DEFAULT_MODEL_NAME   = os.getenv("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
-DEFAULT_HF_TOKEN     = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+# ── Configuration ────────────────────────────────────────────────────────────
+# IMPORTANT: API_BASE_URL and API_KEY MUST come from environment variables
+# injected by the OpenEnv judge. Do NOT hardcode or fall back to other providers.
+DEFAULT_ENV_URL    = os.getenv("ENV_URL", "https://huggingface.co/spaces/anshulkasat/fragilechain")
+DEFAULT_API_BASE_URL = os.environ.get("API_BASE_URL")   # required — no fallback
+DEFAULT_API_KEY    = os.environ.get("API_KEY")           # required — no fallback
+DEFAULT_MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
+HF_TOKEN = os.getenv("HF_TOKEN")
 
-BENCHMARK    = "fragilechain"
-MAX_STEPS    = 35
+BENCHMARK         = "fragilechain"
+MAX_STEPS         = 35
 SUCCESS_THRESHOLD = 0.4
 
 
@@ -223,23 +226,28 @@ if __name__ == "__main__":
     parser.add_argument("--task", type=str, default="all", help="Task ID (task1|task2|task3|all)")
     parser.add_argument("--url", type=str, default=DEFAULT_ENV_URL, help="Environment server URL")
     parser.add_argument("--model", type=str, default=DEFAULT_MODEL_NAME, help="LLM model name")
-    parser.add_argument("--api-base", type=str, default=DEFAULT_API_BASE_URL, help="LLM API base URL")
     parser.add_argument("--seed", type=int, default=42, help="RNG seed")
     args = parser.parse_args()
 
-    api_key = DEFAULT_HF_TOKEN
+    # --- Validate required injected env vars ---
+    api_key = DEFAULT_API_KEY
     if not api_key:
-        print("[ERROR] HF_TOKEN or API_KEY environment variable required.", file=sys.stderr)
+        print("[ERROR] API_KEY environment variable is required (injected by OpenEnv judge).", file=sys.stderr)
+        sys.exit(1)
+
+    api_base = DEFAULT_API_BASE_URL
+    if not api_base:
+        print("[ERROR] API_BASE_URL environment variable is required (injected by OpenEnv judge).", file=sys.stderr)
         sys.exit(1)
 
     tasks = ["task1", "task2", "task3"] if args.task == "all" else [args.task]
-    
+
     for t in tasks:
         run_episode(
             task_id=t,
             env_url=args.url,
             api_key=api_key,
-            api_base=args.api_base,
+            api_base=api_base,
             model_name=args.model,
             seed=args.seed
         )
