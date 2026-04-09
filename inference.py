@@ -48,7 +48,7 @@ except ImportError:
 # injected by the OpenEnv judge. Do NOT hardcode or fall back to other providers.
 DEFAULT_ENV_URL    = os.getenv("ENV_URL", "https://huggingface.co/spaces/anshulkasat/fragilechain")
 DEFAULT_API_BASE_URL = os.environ.get("API_BASE_URL") or "https://router.huggingface.co/v1"  # required — no fallback
-DEFAULT_API_KEY    = s.getenv("HF_TOKEN") or os.getenv("API_KEY")        # required — no fallback
+DEFAULT_API_KEY    = os.getenv("HF_TOKEN") or os.getenv("API_KEY")        # required — no fallback
 DEFAULT_MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
 
 BENCHMARK         = "fragilechain"
