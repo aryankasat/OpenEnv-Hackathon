@@ -88,4 +88,4 @@ baseline:
     task1: 0.50
     task2: 0.09
     task3: 0.67
-  note: "Run baseline.py with HF_TOKEN set to reproduce results via Hugging Face Router"
+  note: "Run baseline.py with a valid API key set to reproduce results via Hugging Face Router"

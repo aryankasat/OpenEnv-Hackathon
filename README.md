@@ -318,7 +318,7 @@ The mandatory submission script. Uses the OpenAI client pointed at any compatibl
 
 | Variable                   | Required | Default                            | Description                                 |
 | -------------------------- | -------- | ---------------------------------- | ------------------------------------------- |
-| `HF_TOKEN` / `API_KEY` | ✅       | —                                 | API key                                     |
+| `API_KEY`                 | ✅       | —                                 | API key                                     |
 | `API_BASE_URL`           | —       | `https://api.groq.com/openai/v1` | LLM endpoint                                |
 | `MODEL_NAME`             | —       | `llama-3.3-70b-versatile`        | Model identifier                            |
 | `FRAGILECHAIN_TASK`      | —       | `task1`                          | Task to run (`task1`/`task2`/`task3`) |
@@ -328,11 +328,10 @@ The mandatory submission script. Uses the OpenAI client pointed at any compatibl
 
 ```bash
 # Groq (recommended)
-export HF_TOKEN=gsk_...
+export API_KEY=gsk_...
 python3 inference.py
 
 # HuggingFace router
-export HF_TOKEN=hf_...
 export API_BASE_URL=https://router.huggingface.co/v1
 export MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
 python3 inference.py

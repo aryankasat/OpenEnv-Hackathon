@@ -9,7 +9,7 @@ This guide walks through deploying FragileChain to Hugging Face Spaces for submi
 - [Hugging Face account](https://huggingface.co) with write access
 - Git installed locally
 - API credentials ready:
-  - `HF_TOKEN` (from https://huggingface.co/settings/tokens)
+  - `API_KEY` (mandatory for proxy compliance)
   - `GROQ_API_KEY` or equivalent LLM provider key
 
 ---
@@ -41,7 +41,7 @@ https://huggingface.co/spaces/{your_username}/fragilechain
 pip install huggingface-hub
 
 huggingface-cli login
-# Paste your HF_TOKEN when prompted
+# Paste your Hugging Face token when prompted
 ```
 
 ### Option B: Manual Git Configuration
@@ -94,9 +94,8 @@ The Space will read environment variables from **Settings → Repository secrets
 
 | Name | Value | Example |
 |------|-------|---------|
-| `HF_TOKEN` | Your HF API key | `hf_abc...xyz` |
+| `API_KEY` | Your OpenEnv/LiteLLM proxy key | `hf_abc...xyz` |
 | `GROQ_API_KEY` | Groq API key (optional, for baseline) | `gsk_...` |
-| `API_KEY` | Alternative to HF_TOKEN | — |
 
 **Note:** These are only visible to the Space owner and never logged.
 
@@ -185,9 +184,9 @@ Submission ready for evaluation!
 Test the inference script against your live Space:
 
 ```bash
-export HF_TOKEN=hf_...
-export API_BASE_URL=https://api.groq.com/openai/v1
-export MODEL_NAME=llama-3.3-70b-versatile
+export API_KEY=hf_...
+export API_BASE_URL=https://router.huggingface.co/v1
+export MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
 
 FRAGILECHAIN_TASK=task1 python inference.py
 ```
@@ -286,7 +285,7 @@ The Space's `docker run` command automatically loads secrets:
 
 ```bash
 # Inside running Space container:
-echo $HF_TOKEN        # ← injected from repository secret
+echo $API_KEY        # ← injected from repository secret
 echo $GROQ_API_KEY    # ← if set
 ```
 
@@ -294,7 +293,7 @@ You can reference these in your inference script or in app initialization:
 
 ```python
 import os
-api_key = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+api_key = os.getenv("API_KEY")
 ```
 
 ---
