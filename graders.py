@@ -321,7 +321,7 @@ class Task3Grader(BaseGrader):
         Uses actual cumulative delivery tracking (not estimates).
         """
         if self.engine.total_demand == 0:
-            return 0.0
+            return self._clamp(0.0)
 
         # Compute weighted delivery ratio per site using actual tracked values
         weighted_delivered = 0.0

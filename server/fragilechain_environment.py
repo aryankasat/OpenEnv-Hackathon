@@ -71,7 +71,7 @@ class FragileChainEnvironment(Environment):
             current_day=0,
             max_days=max_days,
             total_reward=0.0,
-            task_score=0.0,
+            task_score=0.0001,
         )
 
     # ------------------------------------------------------------------
@@ -104,7 +104,7 @@ class FragileChainEnvironment(Environment):
             current_day=0,
             max_days=self._max_days,
             total_reward=0.0,
-            task_score=0.0,
+            task_score=0.0001,
         )
 
         obs = self._engine.get_observation()
