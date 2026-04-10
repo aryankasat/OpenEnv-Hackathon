@@ -46,10 +46,10 @@ except ImportError:
 # ── Configuration ────────────────────────────────────────────────────────────
 # IMPORTANT: API_BASE_URL and API_KEY MUST come from environment variables
 # injected by the OpenEnv judge. Do NOT hardcode or fall back to other providers.
-DEFAULT_ENV_URL      = os.environ.get("ENV_URL", "https://huggingface.co/spaces/anshulkasat/fragilechain")
-DEFAULT_API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")  # active default
-DEFAULT_MODEL_NAME   = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")   # active default
-DEFAULT_API_KEY      = os.environ.get("HF_TOKEN") or os.environ.get("API_KEY")  # API_KEY takes precedence for judge
+DEFAULT_ENV_URL      = os.environ.get("ENV_URL", "http://localhost:7860")
+DEFAULT_API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
+DEFAULT_MODEL_NAME   = os.environ.get("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
+DEFAULT_API_KEY      = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN")
 
 BENCHMARK         = "fragilechain"
 MAX_STEPS         = 35

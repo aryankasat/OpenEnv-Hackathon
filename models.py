@@ -10,7 +10,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 # ---------------------------------------------------------------------------
@@ -68,8 +68,7 @@ class SiteStatus(BaseModel):
     is_isolated: bool = Field(False, description="True if site is cut off from normal routes")
     alert: AlertType = Field(AlertType.NONE, description="Active alert at this site")
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True, populate_by_name=True)
 
 
 class GlobalAlert(BaseModel):
@@ -149,8 +148,7 @@ class Action(BaseModel):
         description="Agent's internal reasoning (logged but does not affect sim)"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True, populate_by_name=True)
 
 
 class State(BaseModel):

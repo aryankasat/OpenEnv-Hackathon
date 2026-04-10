@@ -132,7 +132,7 @@ class FragileChainEnvironment(Environment):
             task_result = self._grader.compute_score()
             self._state.task_score = task_result.score
             obs.info["task_score"] = task_result.score
-            obs.info["task_result"] = task_result.dict()
+            obs.info["task_result"] = task_result.model_dump()
 
         return obs
 

@@ -16,10 +16,13 @@ import sys
 # Ensure parent directory is in path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
+import json
+import traceback
+from typing import List, Optional, Any, Dict
 
 from models import Action, Observation, State
 from server.fragilechain_environment import FragileChainEnvironment
@@ -33,7 +36,8 @@ class ActionWrapperMiddleware:
         self.app = app
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] == "http" and scope["path"] == "/step" and scope["method"] == "POST":
+        # We only care about POST /step and /reset
+        if scope["type"] == "http" and scope["method"] == "POST" and scope["path"] in ["/step", "/reset"]:
             # intercept body
             body = b""
             more_body = True
@@ -45,12 +49,15 @@ class ActionWrapperMiddleware:
                 more_body = message.get("more_body", False)
             
             try:
-                import json
                 data = json.loads(body)
-                if isinstance(data, dict) and "action" not in data and "action_type" in data:
-                    # wrap it
-                    new_body = json.dumps({"action": data}).encode("utf-8")
-                    messages = [{"type": "http.request", "body": new_body, "more_body": False}]
+                if scope["path"] == "/step":
+                    if isinstance(data, dict) and "action" not in data and "action_type" in data:
+                        # wrap it: {"action": {...}}
+                        new_body = json.dumps({"action": data}).encode("utf-8")
+                        messages = [{"type": "http.request", "body": new_body, "more_body": False}]
+                elif scope["path"] == "/reset":
+                    # If reset call has body but NO action key, it's probably standard OpenEnv
+                    pass
             except Exception:
                 pass
                 
@@ -63,6 +70,46 @@ class ActionWrapperMiddleware:
             return await self.app(scope, new_receive, send)
             
         return await self.app(scope, receive, send)
+
+def add_standard_routes(app_obj, env_instance):
+    """Register endpoints that should always be present."""
+    
+    @app_obj.get("/tasks")
+    async def list_tasks():
+        return {
+            "tasks": [
+                {
+                    "task_id": "task1",
+                    "difficulty": "easy",
+                    "description": "Steady State – maintain supply above demand for 30 days",
+                    "max_days": 30,
+                    "has_grader": True,
+                },
+                {
+                    "task_id": "task2",
+                    "difficulty": "medium",
+                    "description": "Thermal Anomaly – detect and mitigate fridge failure at SITE_ALPHA",
+                    "max_days": 30,
+                    "has_grader": True,
+                },
+                {
+                    "task_id": "task3",
+                    "difficulty": "hard",
+                    "description": "Black Swan – hub closure + hurricane, prioritise Phase III",
+                    "max_days": 30,
+                    "has_grader": True,
+                },
+            ]
+        }
+
+    @app_obj.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        print(f"CRITICAL ERROR: {exc}")
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal Server Error", "error": str(exc), "traceback": traceback.format_exc()}
+        )
 
 try:
     from openenv.core.env_server.http_server import create_app
@@ -145,6 +192,9 @@ except ImportError:
 
     # Singleton environment (stateless endpoint style)
     _env = FragileChainEnvironment()
+    _env.reset() # Initial reset to populate sites
+
+    add_standard_routes(app, _env)
 
     @app.get("/health")
     async def health():
@@ -152,10 +202,16 @@ except ImportError:
 
     @app.post("/reset")
     async def reset(
-        task_id: str = Query("task1", enum=["task1", "task2", "task3"]),
-        seed: int = Query(None),
+        task_id: Optional[str] = Query(None, enum=["task1", "task2", "task3"]),
+        seed: Optional[int] = Query(None),
+        body: dict = Body(None)
     ):
-        obs = _env.reset(task_id=task_id, seed=seed)
+        # Merge query and body params
+        tid = (body.get("task_id") if body else None) or task_id or "task1"
+        s = (body.get("seed") if body else None) or seed
+        e_id = (body.get("episode_id") if body else None)
+        
+        obs = _env.reset(task_id=tid, seed=s, episode_id=e_id)
         return obs.dict()
 
     @app.post("/step")
@@ -166,6 +222,10 @@ except ImportError:
     @app.get("/state")
     async def state():
         return _env.state.dict()
+
+    @app.get("/metadata")
+    async def metadata():
+        return _env.get_metadata()
 
 
 
@@ -200,7 +260,7 @@ async def list_tasks():
 
 
 def main():
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=7860)
 
 
 if __name__ == "__main__":
