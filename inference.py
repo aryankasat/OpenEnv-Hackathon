@@ -140,7 +140,7 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
 
 # ── LLM call ──────────────────────────────────────────────────────────────────
 def call_llm(client: OpenAI, model: str, prompt: str) -> str:
-    """Performs strict LLM call. No silence on failure."""
+    """Performs LLM call with fallback on failure."""
     try:
         response = client.chat.completions.create(
             model=model,
@@ -157,13 +157,12 @@ def call_llm(client: OpenAI, model: str, prompt: str) -> str:
             raise ValueError("LLM returned empty content")
         return content
     except Exception as e:
-        print(f"[CRITICAL ERROR] LLM call failed: {e}", file=sys.stderr, flush=True)
-        # CRITICAL: Do NOT return a fallback. Reraise to fail the script.
-        raise
+        print(f"[WARNING] LLM call failed: {e}. Falling back to DO_NOTHING", file=sys.stderr, flush=True)
+        return '{"action_type": "do_nothing", "internal_thought": "Fallback due to LLM failure"}'
 
 
 def parse_action(raw: str) -> Action:
-    """Strictly parses action. No do_nothing fallback."""
+    """Parses action with do_nothing fallback on malformed JSON."""
     text = raw.strip()
     if text.startswith("```"):
         text = "\n".join(line for line in text.splitlines() if not line.strip().startswith("```")).strip()
@@ -171,8 +170,8 @@ def parse_action(raw: str) -> Action:
         d = json.loads(text)
         return Action(**d)
     except Exception as e:
-        print(f"[CRITICAL ERROR] Failed to parse action JSON: {raw}", file=sys.stderr, flush=True)
-        raise ValueError(f"Action parse failure: {e}")
+        print(f"[WARNING] Failed to parse action JSON: {raw}. Falling back to DO_NOTHING.", file=sys.stderr, flush=True)
+        return Action(action_type=ActionType.DO_NOTHING, internal_thought=f"Parse failure: {e}")
 
 
 def verify_proxy(client: OpenAI, model: str):

@@ -220,6 +220,7 @@ class ColdChainEngine:
         self.current_day: int = 0
         self.budget: float = max_budget
         self.global_alerts: List[GlobalAlert] = []
+        self.in_transit: List[Dict] = []
 
         # Cumulative tracking
         self.total_doses_delivered: int = 0
@@ -241,6 +242,7 @@ class ColdChainEngine:
         self.current_day = 0
         self.budget = self.max_budget
         self.global_alerts = []
+        self.in_transit = []
         self.total_doses_delivered = 0
         self.total_demand = 0
         self.shipping_cost_accumulated = 0.0
@@ -402,10 +404,22 @@ class ColdChainEngine:
         if tgt.is_isolated:
             return 0.0, 0.0
 
+        if src_id == tgt_id:
+            return 0.0, 0.0
+
         # Clamp to available stock
         actual_amount = min(amount, src.vials)
+        if actual_amount <= 0:
+            return 0.0, 0.0
+
         src.vials -= actual_amount
-        tgt.vials += actual_amount
+
+        shipping_days = SHIPPING_DAYS.get(mode, SHIPPING_DAYS.get(ShippingMode.STANDARD, 3))
+        self.in_transit.append({
+            "target_id": tgt_id,
+            "amount": actual_amount,
+            "arrival_day": self.current_day + shipping_days
+        })
 
         # Cost calculation
         cost_per_vial = SHIPPING_COST_PER_VIAL.get(mode, SHIPPING_COST_PER_VIAL[ShippingMode.STANDARD])
@@ -436,7 +450,8 @@ class ColdChainEngine:
                     new_connections.append(tgt_hub)
                 self.network[sid] = new_connections
                 # Also un-isolate the site if it was isolated due to hub closure
-                if self.sites[sid].is_isolated:
+                # EXPLOIT FIX: Do not un-isolate the closed hub itself!
+                if self.sites[sid].is_isolated and self.sites[sid].alert not in [AlertType.HUB_CLOSURE, "hub_closure"]:
                     self.sites[sid].is_isolated = False
 
         self.budget -= cost
@@ -455,6 +470,14 @@ class ColdChainEngine:
     def _advance_day(self) -> None:
         """Apply natural daily dynamics: demand consumption, temperature drift, thermal debt."""
         self.current_day += 1
+
+        # Process shipping arrivals
+        arrived = [ship for ship in self.in_transit if ship["arrival_day"] <= self.current_day]
+        self.in_transit = [ship for ship in self.in_transit if ship["arrival_day"] > self.current_day]
+        for ship in arrived:
+            tgt = self.sites.get(ship["target_id"])
+            if tgt:
+                tgt.vials += ship["amount"]
 
         for site in self.sites.values():
             # Consume daily demand
@@ -537,29 +560,6 @@ class ColdChainEngine:
             return True
         return False
 
-    def compute_scientific_integrity(self) -> float:
-        """
-        SI = (Σ doses_delivered_i * priority_weight_i / total_demand) * (1 - mean_thermal_debt)
-
-        This is the terminal score used by task graders.
-        """
-        if self.total_demand == 0:
-            return 0.0
-        weighted_delivered = 0.0
-        for site in self.sites.values():
-            pw = site.priority_weight()
-            # Approximate per-site delivered as proportional to stock ratio
-            daily = site.daily_demand
-            est_days = self.current_day
-            max_possible = daily * est_days
-            # Approximate delivered based on remaining stock deficit
-            approx_delivered = max(0, max_possible - max(0, max_possible - (self.total_doses_delivered // len(self.sites))))
-            weighted_delivered += approx_delivered * pw
-
-        mean_debt = sum(s.thermal_debt for s in self.sites.values()) / max(1, len(self.sites))
-        si = (weighted_delivered / max(1, self.total_demand)) * (1.0 - mean_debt)
-        return round(max(0.0, min(1.0, si)), 4)
-
     # ------------------------------------------------------------------
     # Observation builder
     # ------------------------------------------------------------------
@@ -580,6 +580,8 @@ class ColdChainEngine:
                 "total_demand_so_far": self.total_demand,
                 "shipping_cost_accumulated": round(self.shipping_cost_accumulated, 2),
                 "task_id": self.task_id,
+                "in_transit_shipments": len(self.in_transit),
+                "in_transit_vials_total": sum(ship["amount"] for ship in self.in_transit)
             },
         )
 

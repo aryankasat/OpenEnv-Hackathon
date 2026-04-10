@@ -14,7 +14,7 @@ from abc import ABC, abstractmethod
 from typing import Dict
 
 from engine import ColdChainEngine
-from models import TaskResult, TrialPhase
+from models import TaskResult, TrialPhase, AlertType
 
 
 class BaseGrader(ABC):
@@ -139,26 +139,36 @@ class Task2Grader(BaseGrader):
 
     α=0.4, β=0.4, γ=0.2
 
-    Mitigation speed: how quickly the agent moved vials from SITE_ALPHA
-    Vials saved: proportion of SITE_ALPHA vials moved before debt > 0.7
+    Mitigation speed: how quickly the agent actively evacuated vials from the target site
+    Vials saved: net evacuated vials out of the affected site before debt > 0.7
     """
 
     task_id = "task2"
     difficulty = "medium"
     description = (
-        "Detect that SITE_ALPHA's refrigeration is failing (rising Thermal Debt) "
+        "Detect that a site's refrigeration is failing (rising Thermal Debt) "
         "and move stock to other sites before drug efficacy reaches zero (debt >= 1.0)."
     )
 
     def __init__(self, engine: ColdChainEngine):
         super().__init__(engine)
-        self._mitigation_day: int | None = None    # first day SITE_ALPHA stock moved out
+        self._mitigation_day: int | None = None    # first day stock moved out actively
         self._vials_at_anomaly_start: int = 0
         self._vials_saved: int = 0
         self._alpha_compromised: bool = False
+        self._target_site_id: str | None = None
 
     def _on_record_step(self) -> None:
-        alpha = self.engine.sites.get("SITE_ALPHA")
+        if not self._target_site_id:
+            for site in self.engine.sites.values():
+                if site.alert in [AlertType.FRIDGE_MALFUNCTION, "fridge_malfunction"]:
+                    self._target_site_id = site.site_id
+                    break
+
+        if not self._target_site_id:
+            return
+
+        alpha = self.engine.sites.get(self._target_site_id)
         if alpha is None:
             return
 
@@ -166,21 +176,24 @@ class Task2Grader(BaseGrader):
         if self._days_recorded == 1:
             self._vials_at_anomaly_start = alpha.vials
 
+        # EXPLOIT FIX: Calculate active evacuation by subtracting natural consumption trend
+        natural_stock_remaining = self._vials_at_anomaly_start - (self._days_recorded * alpha.daily_demand)
+        net_evacuated = max(0, natural_stock_remaining - alpha.vials)
+
         # Check if agent has moved stock (mitigation)
         if self._mitigation_day is None:
-            if alpha.vials < self._vials_at_anomaly_start:
+            if net_evacuated > 0:
                 self._mitigation_day = self.engine.current_day
 
-        # Track vials saved (those evacuated before debt > 0.7)
+        # Track vials saved (those actively evacuated before debt > 0.7)
         if alpha.thermal_debt <= 0.7:
-            delta = max(0, self._vials_at_anomaly_start - alpha.vials)
-            self._vials_saved = delta
+            self._vials_saved = net_evacuated
 
         if alpha.thermal_debt >= 1.0:
             self._alpha_compromised = True
 
     def compute_score(self) -> TaskResult:
-        alpha = self.engine.sites.get("SITE_ALPHA")
+        alpha = self.engine.sites.get(self._target_site_id or "")
         alpha_debt = alpha.thermal_debt if alpha else 1.0
 
         # Mitigation speed score: earlier is better (max 30 days)
@@ -246,11 +259,9 @@ class Task3Grader(BaseGrader):
     difficulty = "hard"
     description = (
         "Manage simultaneous hub closure and hurricane. "
-        "Prioritise Phase III sites (SITE_ALPHA, SITE_DELTA) by rerouting "
+        "Prioritise Phase III sites by rerouting "
         "and redistributing stock while keeping thermal debt low."
     )
-
-    PHASE3_SITES = ["SITE_ALPHA", "SITE_DELTA"]
 
     def __init__(self, engine: ColdChainEngine):
         super().__init__(engine)
@@ -264,8 +275,10 @@ class Task3Grader(BaseGrader):
             self._per_site_demand[site_id] = 0
 
     def _on_record_step(self) -> None:
+        phase3_sites = [s.site_id for s in self.engine.sites.values() if s.trial_phase in [TrialPhase.PHASE_III, "Phase III"]]
+
         # Track Phase III stockout events
-        for sid in self.PHASE3_SITES:
+        for sid in phase3_sites:
             site = self.engine.sites.get(sid)
             if site and site.vials < site.daily_demand * 3:
                 self._phase3_stockout_days += 1
