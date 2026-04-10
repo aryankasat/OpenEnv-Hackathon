@@ -38,6 +38,7 @@ from models import Action, ActionType, Observation
 
 # ── Import OpenAI client ─────────────────────────────────────────────────────
 try:
+    import openai
     from openai import OpenAI
 except ImportError:
     print("[ERROR] openai not installed. Run: pip install openai", flush=True)
@@ -137,6 +138,7 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
 
 # ── LLM call ──────────────────────────────────────────────────────────────────
 def call_llm(client: OpenAI, model: str, prompt: str) -> str:
+    print(f"[DEBUG] Calling LLM (model={model})", file=sys.stderr, flush=True)
     try:
         response = client.chat.completions.create(
             model=model,
@@ -146,10 +148,16 @@ def call_llm(client: OpenAI, model: str, prompt: str) -> str:
             ],
             temperature=0.2,
             max_tokens=300,
+            timeout=30.0, # Add timeout to prevent hanging
         )
-        return (response.choices[0].message.content or "").strip()
+        content = (response.choices[0].message.content or "").strip()
+        if not content:
+            print("[DEBUG] LLM returned empty content", file=sys.stderr, flush=True)
+        return content
     except Exception as e:
-        print(f"[DEBUG] LLM call failed: {e}", file=sys.stderr, flush=True)
+        print(f"[ERROR] LLM call failed: {e}", file=sys.stderr, flush=True)
+        # Re-raise or return empty? Let's return empty to allow episode to continue,
+        # but the error is now in stderr for the user to see in logs.
         return ""
 
 
@@ -231,11 +239,25 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # --- Strict Judge Validation ---
-    # We use os.environ[] directly to ensure the script fails loudly if the judge 
-    # has not injected the required proxy credentials.
     try:
-        api_key = os.environ["API_KEY"]
-        api_base = os.environ["API_BASE_URL"]
+        api_key = os.environ["API_KEY"].strip()
+        api_base = os.environ["API_BASE_URL"].strip().rstrip("/")
+        
+        # Diagnostics (Masking API Key)
+        masked_key = f"{api_key[:4]}...{api_key[-4:]}" if len(api_key) > 8 else "****"
+        print(f"--- JUDGE ENVIRONMENT ---", file=sys.stderr)
+        print(f"API_BASE_URL: {api_base}", file=sys.stderr)
+        print(f"API_KEY:      {masked_key}", file=sys.stderr)
+        print(f"MODEL_NAME:   {MODEL_NAME}", file=sys.stderr)
+        print(f"-------------------------", file=sys.stderr, flush=True)
+
+        # Double-down on settings: set both global and client-specific
+        # This helps if any underlying shims are used.
+        if hasattr(openai, "api_key"):
+            openai.api_key = api_key
+        if hasattr(openai, "base_url"):
+            openai.base_url = api_base
+
     except KeyError as e:
         print(f"[ERROR] Missing mandatory environment variable: {e}", file=sys.stderr)
         print("[ERROR] This script must be run by the OpenEnv judge infrastructure.", file=sys.stderr)
