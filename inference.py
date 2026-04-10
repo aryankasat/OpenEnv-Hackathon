@@ -138,7 +138,7 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
 
 # ── LLM call ──────────────────────────────────────────────────────────────────
 def call_llm(client: OpenAI, model: str, prompt: str) -> str:
-    print(f"[DEBUG] Calling LLM (model={model})", file=sys.stderr, flush=True)
+    """Performs strict LLM call. No silence on failure."""
     try:
         response = client.chat.completions.create(
             model=model,
@@ -148,34 +148,64 @@ def call_llm(client: OpenAI, model: str, prompt: str) -> str:
             ],
             temperature=0.2,
             max_tokens=300,
-            timeout=30.0, # Add timeout to prevent hanging
+            timeout=30.0,
         )
         content = (response.choices[0].message.content or "").strip()
         if not content:
-            print("[DEBUG] LLM returned empty content", file=sys.stderr, flush=True)
+            raise ValueError("LLM returned empty content")
         return content
     except Exception as e:
-        print(f"[ERROR] LLM call failed: {e}", file=sys.stderr, flush=True)
-        # Re-raise or return empty? Let's return empty to allow episode to continue,
-        # but the error is now in stderr for the user to see in logs.
-        return ""
+        print(f"[CRITICAL ERROR] LLM call failed: {e}", file=sys.stderr, flush=True)
+        # CRITICAL: Do NOT return a fallback. Reraise to fail the script.
+        raise
 
 
-def parse_action(raw: str) -> tuple[Action, Optional[str]]:
+def parse_action(raw: str) -> Action:
+    """Strictly parses action. No do_nothing fallback."""
     text = raw.strip()
     if text.startswith("```"):
         text = "\n".join(line for line in text.splitlines() if not line.strip().startswith("```")).strip()
     try:
         d = json.loads(text)
-        return Action(**d), None
+        return Action(**d)
     except Exception as e:
-        return Action(action_type=ActionType.DO_NOTHING, internal_thought=f"[parse-error] {e}"), str(e)
+        print(f"[CRITICAL ERROR] Failed to parse action JSON: {raw}", file=sys.stderr, flush=True)
+        raise ValueError(f"Action parse failure: {e}")
+
+
+def verify_proxy(client: OpenAI, model: str):
+    """Canary call to verify proxy connectivity before episode starts."""
+    print("[DEBUG] Running proxy canary check...", file=sys.stderr, flush=True)
+    try:
+        # Minimal call to verify routing
+        client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": "ping"}],
+            max_tokens=1,
+            timeout=10.0
+        )
+        print("[DEBUG] Proxy canary check: SUCCESS", file=sys.stderr, flush=True)
+    except Exception as e:
+        print(f"[CRITICAL ERROR] Proxy canary check FAILED: {e}", file=sys.stderr, flush=True)
+        print("[HINT] This usually means API_BASE_URL is incorrect or the proxy is down.", file=sys.stderr)
+        raise
 
 
 # ── Episode runner ────────────────────────────────────────────────────────────
 def run_episode(task_id: str, env_url: str, api_key: str, api_base: str, model_name: str, seed: int):
-    client = OpenAI(api_key=api_key, base_url=api_base)
+    # Ensure base_url is formatted for OpenAI client (LiteLLM often needs /v1)
+    # If the user-provided URL doesn't have a path, we might need to append /v1
+    actual_base = api_base
+    if not actual_base.endswith("/v1") and "api.groq.com" not in actual_base:
+        # LiteLLM/OpenAI proxies usually expect /v1
+        print(f"[DEBUG] Appending /v1 suffix to base_url for compatibility", file=sys.stderr)
+        actual_base = f"{actual_base}/v1"
+
+    client = OpenAI(api_key=api_key, base_url=actual_base)
     
+    # Run canary check first
+    verify_proxy(client, model_name)
+
     rewards: List[float] = []
     steps_taken = 0
     score = 0.0
@@ -193,7 +223,7 @@ def run_episode(task_id: str, env_url: str, api_key: str, api_base: str, model_n
                 
                 prompt = _build_obs_prompt(obs, step)
                 raw_action = call_llm(client, model_name, prompt)
-                action, parse_err = parse_action(raw_action)
+                action = parse_action(raw_action)
                 
                 obs = env.step(action)
                 reward = obs.reward
@@ -207,23 +237,20 @@ def run_episode(task_id: str, env_url: str, api_key: str, api_base: str, model_n
                     **({"amount": action.amount} if action.amount else {}),
                 }, separators=(",", ":"))
 
-                log_step(step=step, action=action_repr, reward=reward, done=obs.done, error=parse_err)
+                log_step(step=step, action=action_repr, reward=reward, done=obs.done, error=None)
 
                 if obs.done:
                     break
             
-            # Get final score from environment state
-            try:
-                state_obj = env.state()
-                score = state_obj.task_score
-            except:
-                # Fallback to mean reward if state() fails
-                score = sum(rewards) / len(rewards) if rewards else 0.0
-            
+            state_obj = env.state()
+            score = state_obj.task_score
             success = score >= SUCCESS_THRESHOLD
 
     except Exception as e:
-        print(f"[DEBUG] Episode {task_id} failed: {e}", file=sys.stderr, flush=True)
+        print(f"[ERROR] Episode {task_id} aborted: {e}", file=sys.stderr, flush=True)
+        # Re-raise so [END] isn't logged if we haven't actually finished? 
+        # No, judge wants [END] even on failure usually, but with success=false.
+        success = False
 
     finally:
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
@@ -238,39 +265,35 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=42, help="RNG seed")
     args = parser.parse_args()
 
-    # --- Strict Judge Validation ---
     try:
         api_key = os.environ["API_KEY"].strip()
         api_base = os.environ["API_BASE_URL"].strip().rstrip("/")
         
-        # Diagnostics (Masking API Key)
+        # Diagnostics
         masked_key = f"{api_key[:4]}...{api_key[-4:]}" if len(api_key) > 8 else "****"
-        print(f"--- JUDGE ENVIRONMENT ---", file=sys.stderr)
+        print(f"--- STRICT JUDGE ENVIRONMENT ---", file=sys.stderr)
         print(f"API_BASE_URL: {api_base}", file=sys.stderr)
         print(f"API_KEY:      {masked_key}", file=sys.stderr)
-        print(f"MODEL_NAME:   {MODEL_NAME}", file=sys.stderr)
-        print(f"-------------------------", file=sys.stderr, flush=True)
-
-        # Double-down on settings: set both global and client-specific
-        # This helps if any underlying shims are used.
-        if hasattr(openai, "api_key"):
-            openai.api_key = api_key
-        if hasattr(openai, "base_url"):
-            openai.base_url = api_base
+        print(f"MODEL_NAME:   {args.model}", file=sys.stderr)
+        print(f"---------------------------------", file=sys.stderr, flush=True)
 
     except KeyError as e:
-        print(f"[ERROR] Missing mandatory environment variable: {e}", file=sys.stderr)
-        print("[ERROR] This script must be run by the OpenEnv judge infrastructure.", file=sys.stderr)
+        print(f"[CRITICAL ERROR] Missing mandatory environment variable: {e}", file=sys.stderr)
         sys.exit(1)
 
     tasks = ["task1", "task2", "task3"] if args.task == "all" else [args.task]
 
     for t in tasks:
-        run_episode(
-            task_id=t,
-            env_url=args.url,
-            api_key=api_key,
-            api_base=api_base,
-            model_name=args.model,
-            seed=args.seed
-        )
+        try:
+            run_episode(
+                task_id=t,
+                env_url=args.url,
+                api_key=api_key,
+                api_base=api_base,
+                model_name=args.model,
+                seed=args.seed
+            )
+        except Exception as e:
+            print(f"[CRITICAL] Fatal error in task {t}: {e}", file=sys.stderr)
+            # Log zero-reward [END] if run_episode crashed before log_start
+            log_end(success=False, steps=0, score=0.0, rewards=[])
