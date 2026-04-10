@@ -290,11 +290,15 @@ class Task3Grader(BaseGrader):
             self._per_site_delivered[site.site_id] += actual_delivered
             self._per_site_demand[site.site_id] += site.daily_demand
 
-        # Check if agent rerouted
-        for sid in ["SITE_DELTA", "SITE_EPSILON"]:
-            conns = self.engine.network.get(sid, [])
-            if "HUB_CENTRAL" in conns:
-                self._reroute_performed = True
+        # Check if agent rerouted Hurricane sites to a functional hub
+        for site in self.engine.sites.values():
+            if site.alert in [AlertType.HURRICANE, "hurricane"]:
+                conns = self.engine.network.get(site.site_id, [])
+                for hub_id in conns:
+                    hub = self.engine.sites.get(hub_id)
+                    if hub and hub.is_hub and not hub.is_isolated:
+                        self._reroute_performed = True
+                        break
 
     def compute_score(self) -> TaskResult:
         # Scientific Integrity formula

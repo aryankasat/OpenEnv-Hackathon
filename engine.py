@@ -438,6 +438,9 @@ class ColdChainEngine:
         if not tgt_hub or tgt_hub not in self.sites:
             return 0.0
 
+        if not sites_to_reroute:
+            return 0.0
+
         hub = self.sites[tgt_hub]
         if not hub.is_hub or hub.is_isolated:
             return 0.0
@@ -594,17 +597,24 @@ class ColdChainEngine:
                 "Temperature excursion threshold: >-20°C for >15 min is a reportable event."
             )
         elif self.task_id == "task2":
+            malfunctioning = [s.site_id for s in self.sites.values() if s.alert in [AlertType.FRIDGE_MALFUNCTION, "fridge_malfunction"]]
+            site_name = malfunctioning[0] if malfunctioning else "UNKNOWN_SITE"
             return (
-                "PROTOCOL v2.3 §6.7 AMENDMENT: Thermal excursion detected at SITE_ALPHA. "
+                f"PROTOCOL v2.3 §6.7 AMENDMENT: Thermal excursion detected at {site_name}. "
                 "All vials with Thermal Debt >0.7 are to be quarantined immediately. "
                 "Phase III patients must be prioritised for re-supply. "
                 "Contact QA within 24h of first excursion event."
             )
         else:
+            phase3_sites = [s.site_id for s in self.sites.values() if s.trial_phase in [TrialPhase.PHASE_III, "Phase III"]]
+            closed_hubs = [s.site_id for s in self.sites.values() if s.alert in [AlertType.HUB_CLOSURE, "hub_closure"]]
+            
+            p3_str = ", ".join(phase3_sites) if phase3_sites else "None"
+            hub_str = ", ".join(closed_hubs) if closed_hubs else "None"
             return (
                 "EMERGENCY PROTOCOL §9.1: Mass disruption event activated. "
-                "Phase III clinical sites (SITE_ALPHA, SITE_DELTA) have CRITICAL priority. "
+                f"Phase III clinical sites ({p3_str}) have CRITICAL priority. "
                 "Bio-hazard shipping pre-approved for Phase III sites. "
                 "Budget exception: additional $100,000 approved for emergency logistics. "
-                "HUB_COAST route suspended until further notice."
+                f"{hub_str} route suspended until further notice."
             )
