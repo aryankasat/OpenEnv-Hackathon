@@ -57,6 +57,10 @@ class BaseGrader(ABC):
             return 0.0
         return sum(s.thermal_debt for s in sites) / len(sites)
 
+    def _clamp(self, val: float) -> float:
+        """Strictly clamp to (0, 1) range [0.0001, 0.9999]."""
+        return max(0.0001, min(0.9999, val))
+
 
 # ---------------------------------------------------------------------------
 # Task 1: Steady State (Easy)
@@ -102,12 +106,12 @@ class Task1Grader(BaseGrader):
 
         # Composite score
         score = service_ratio * (1.0 - mean_debt * 0.5) * (0.8 + 0.2 * budget_remaining_frac)
-        score = max(0.0, min(1.0, score))
+        score = self._clamp(score)
 
         return TaskResult(
             task_id=self.task_id,
             score=round(score, 4),
-            scientific_integrity=round(service_ratio * (1. - mean_debt), 4),
+            scientific_integrity=round(self._clamp(service_ratio * (1. - mean_debt)), 4),
             doses_delivered=self.engine.total_doses_delivered,
             total_demand=self.engine.total_demand,
             mean_thermal_debt=round(mean_debt, 4),
@@ -203,13 +207,13 @@ class Task2Grader(BaseGrader):
             + 0.2 * thermal_factor
             - compromise_penalty
         )
-        score = max(0.0, min(1.0, score))
+        score = self._clamp(score)
         mean_debt = self._mean_thermal_debt()
 
         return TaskResult(
             task_id=self.task_id,
             score=round(score, 4),
-            scientific_integrity=round(saved_ratio * (1.0 - alpha_debt), 4),
+            scientific_integrity=round(self._clamp(saved_ratio * (1.0 - alpha_debt)), 4),
             doses_delivered=self.engine.total_doses_delivered,
             total_demand=self.engine.total_demand,
             mean_thermal_debt=round(mean_debt, 4),
@@ -291,12 +295,12 @@ class Task3Grader(BaseGrader):
         reroute_bonus = 0.1 if self._reroute_performed else 0.0
 
         score = si - phase3_penalty + reroute_bonus
-        score = max(0.0, min(1.0, score))
+        score = self._clamp(score)
 
         return TaskResult(
             task_id=self.task_id,
             score=round(score, 4),
-            scientific_integrity=round(si, 4),
+            scientific_integrity=round(self._clamp(si), 4),
             doses_delivered=self.engine.total_doses_delivered,
             total_demand=self.engine.total_demand,
             mean_thermal_debt=round(mean_debt, 4),
@@ -331,7 +335,7 @@ class Task3Grader(BaseGrader):
         total_demand = self.engine.total_demand
 
         si = (weighted_delivered / max(1, total_demand)) * (1.0 - mean_debt)
-        return round(max(0.0, min(1.0, si)), 4)
+        return round(self._clamp(si), 4)
 
 
 # ---------------------------------------------------------------------------
