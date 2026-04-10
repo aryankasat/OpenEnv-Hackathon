@@ -46,10 +46,12 @@ except ImportError:
 # ── Configuration ────────────────────────────────────────────────────────────
 # IMPORTANT: API_BASE_URL and API_KEY MUST come from environment variables
 # injected by the OpenEnv judge. Do NOT hardcode or fall back to other providers.
-DEFAULT_ENV_URL      = os.environ.get("ENV_URL", "http://localhost:7860")
-DEFAULT_API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
-DEFAULT_MODEL_NAME   = os.environ.get("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
-DEFAULT_API_KEY      = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN")
+# --- Judge Configuration ---
+# API_BASE_URL and API_KEY are MANDATORY and must be provided by the OpenEnv judge.
+# Fallbacks to direct model providers (like Hugging Face Router) are strictly forbidden 
+# by the benchmark rules as it bypasses the monitoring proxy.
+ENV_URL      = os.environ.get("ENV_URL", "http://localhost:7860")
+MODEL_NAME   = os.environ.get("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
 
 BENCHMARK         = "fragilechain"
 MAX_STEPS         = 35
@@ -223,20 +225,20 @@ def run_episode(task_id: str, env_url: str, api_key: str, api_base: str, model_n
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="FragileChain Inference Script")
     parser.add_argument("--task", type=str, default="all", help="Task ID (task1|task2|task3|all)")
-    parser.add_argument("--url", type=str, default=DEFAULT_ENV_URL, help="Environment server URL")
-    parser.add_argument("--model", type=str, default=DEFAULT_MODEL_NAME, help="LLM model name")
+    parser.add_argument("--url", type=str, default=ENV_URL, help="Environment server URL")
+    parser.add_argument("--model", type=str, default=MODEL_NAME, help="LLM model name")
     parser.add_argument("--seed", type=int, default=42, help="RNG seed")
     args = parser.parse_args()
 
-    # --- Validate required injected env vars ---
-    api_key = DEFAULT_API_KEY
-    if not api_key:
-        print("[ERROR] API_KEY environment variable is required (injected by OpenEnv judge).", file=sys.stderr)
-        sys.exit(1)
-
-    api_base = DEFAULT_API_BASE_URL
-    if not api_base:
-        print("[ERROR] API_BASE_URL environment variable is required (injected by OpenEnv judge).", file=sys.stderr)
+    # --- Strict Judge Validation ---
+    # We use os.environ[] directly to ensure the script fails loudly if the judge 
+    # has not injected the required proxy credentials.
+    try:
+        api_key = os.environ["API_KEY"]
+        api_base = os.environ["API_BASE_URL"]
+    except KeyError as e:
+        print(f"[ERROR] Missing mandatory environment variable: {e}", file=sys.stderr)
+        print("[ERROR] This script must be run by the OpenEnv judge infrastructure.", file=sys.stderr)
         sys.exit(1)
 
     tasks = ["task1", "task2", "task3"] if args.task == "all" else [args.task]
