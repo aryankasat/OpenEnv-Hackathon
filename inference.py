@@ -133,7 +133,9 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
 
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
-    print(f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
+    # Use 4 decimal places so 0.0001 is not rounded to 0.000 (which fails strict (0,1) validation)
+    safe_score = max(0.0001, min(0.9999, score))
+    print(f"[END] success={str(success).lower()} steps={steps} score={safe_score:.4f} rewards={rewards_str}", flush=True)
 
 
 # ── LLM call ──────────────────────────────────────────────────────────────────
@@ -208,7 +210,7 @@ def run_episode(task_id: str, env_url: str, api_key: str, api_base: str, model_n
 
     rewards: List[float] = []
     steps_taken = 0
-    score = 0.0
+    score = 0.0001
     success = False
 
     log_start(task=task_id, env_name=BENCHMARK, model=model_name)
@@ -295,5 +297,6 @@ if __name__ == "__main__":
             )
         except Exception as e:
             print(f"[CRITICAL] Fatal error in task {t}: {e}", file=sys.stderr)
-            # Log zero-reward [END] if run_episode crashed before log_start
-            log_end(success=False, steps=0, score=0.0, rewards=[])
+            # Log minimal score [END] if run_episode crashed before log_start
+            # score=0.0 would fail strict (0,1) validation; use 0.0001 instead
+            log_end(success=False, steps=0, score=0.0001, rewards=[])
