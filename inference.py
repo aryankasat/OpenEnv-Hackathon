@@ -245,7 +245,8 @@ def run_episode(task_id: str, env_url: str, api_key: str, api_base: str, model_n
                     break
             
             state_obj = env.state()
-            score = state_obj.task_score
+            raw_score = state_obj.task_score if hasattr(state_obj, "task_score") else 0.0001
+            score = max(0.0001, min(0.9999, float(raw_score)))
             success = score >= SUCCESS_THRESHOLD
 
     except Exception as e:

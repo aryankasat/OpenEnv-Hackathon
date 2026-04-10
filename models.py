@@ -164,7 +164,7 @@ class State(BaseModel):
     current_day: int = Field(0, description="Current simulation day")
     max_days: int = Field(30, description="Episode horizon in days")
     total_reward: float = Field(0.0, description="Cumulative episode reward")
-    task_score: float = Field(0.0, description="Current grader score [0.0-1.0]")
+    task_score: float = Field(0.0001, description="Current grader score [0.0-1.0]")
 
 
 class Reward(BaseModel):
@@ -189,8 +189,8 @@ class TaskResult(BaseModel):
     """Final grader result for a completed episode."""
 
     task_id: str
-    score: float = Field(..., ge=0.0, le=1.0, description="Final task score [0.0-1.0]")
-    scientific_integrity: float = Field(0.0, description="SI metric from proposal formula")
+    score: float = Field(0.0001, gt=0.0, lt=1.0, description="Final task score, strictly in (0, 1)")
+    scientific_integrity: float = Field(0.0001, description="SI metric from proposal formula")
     doses_delivered: int = Field(0, description="Total effective doses delivered")
     total_demand: int = Field(0, description="Total demand across all sites")
     mean_thermal_debt: float = Field(0.0, description="Mean thermal debt at episode end")
