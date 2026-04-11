@@ -10,7 +10,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +147,38 @@ class Action(BaseModel):
         "",
         description="Agent's internal reasoning (logged but does not affect sim)"
     )
+
+    @model_validator(mode='after')
+    def validate_action_fields(self) -> 'Action':
+        VALID_SITES = {"HUB_CENTRAL", "HUB_COAST", "SITE_ALPHA", "SITE_BETA", "SITE_GAMMA", "SITE_DELTA", "SITE_EPSILON"}
+        
+        # 1. Validate common site IDs if provided
+        for sid in [self.source_id, self.target_id]:
+            if sid is not None and sid not in VALID_SITES:
+                raise ValueError(f"Invalid site_id '{sid}'. Must be one of {VALID_SITES}")
+                
+        if self.affected_sites is not None:
+            for sid in self.affected_sites:
+                if sid not in VALID_SITES:
+                    raise ValueError(f"Invalid site_id '{sid}' in affected_sites. Must be one of {VALID_SITES}")
+
+        # 2. Action-specific requirement checks
+        atype = self.action_type
+        if atype == ActionType.REBALANCE:
+            if not self.source_id or not self.target_id or self.amount is None:
+                raise ValueError("REBALANCE action requires 'source_id', 'target_id', and 'amount'.")
+            if self.amount <= 0:
+                raise ValueError("REBALANCE 'amount' must be strictly positive (greater than 0).")
+            if self.source_id == self.target_id:
+                raise ValueError("REBALANCE 'source_id' and 'target_id' must be different.")
+        elif atype == ActionType.REROUTE_HUB:
+            if not self.target_id or not self.affected_sites:
+                raise ValueError("REROUTE_HUB action requires 'target_id' (new hub) and 'affected_sites'.")
+        elif atype == ActionType.SCOUT:
+            if not self.source_id:
+                raise ValueError("SCOUT action requires a 'source_id'.")
+                
+        return self
 
     model_config = ConfigDict(use_enum_values=True, populate_by_name=True)
 
