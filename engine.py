@@ -362,9 +362,11 @@ class ColdChainEngine:
         stockouts = sum(1 for s in self.sites.values() if s.vials <= 0)
         stockout_penalty = -stockouts * 0.05
 
-        # Reward formula:  R = 0.4*ΔPSL - 0.2*(fiscal_cost/max_budget) - 0.2*shipping_cost_norm + thermal + stockout
+        # Reward formula:  R = 0.2*PSL_after + 0.3*ΔPSL - 0.2*(fiscal_cost/max_budget) - 0.2*shipping_cost_norm + thermal + stockout
+        # Incorporates absolute positive reward for maintaining high patient service levels over time.
         total = (
-            0.4 * delta_psl
+            0.2 * psl_after
+            + 0.3 * delta_psl
             - 0.2 * (fiscal_cost / self.max_budget)
             - 0.2 * (shipping_cost / max(1.0, self.max_budget * 0.01))
             + thermal_penalty
